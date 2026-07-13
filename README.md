@@ -39,10 +39,13 @@ powershell -NoProfile -File .\scripts\doctor.ps1
 
 ## 将规则用于 Codex
 
-AgentGuard 提供两种规则模板：
+AgentGuard 提供三种规则模板：
 
-- `templates/global-AGENTS.md`：适用于本机 Codex 默认规则；
+- `templates/global-AGENTS.md`：跨平台、安全、低侵入的本机 Codex 默认规则；
+- `templates/windows/global-AGENTS.windows.md`：可选的 Windows 增强规则，关注 `pwsh`、Windows PowerShell 5.1、UTF-8 管道和 `-LiteralPath`；
 - `templates/repo-AGENTS.md`：适用于单个项目。
+
+仓库发布的是通用模板副本，不是某位用户真实的 `~/.codex/AGENTS.md`。请不要将个人偏好、公司路径、私有命令、Token、代理地址或内网信息上传到公开模板中。
 
 ### 推荐：合并到全局 Codex 规则
 
@@ -58,9 +61,13 @@ $globalAgents = Join-Path $codexHome 'AGENTS.md'
 notepad.exe $globalAgents
 ```
 
-打开后，将 `templates/global-AGENTS.md` 中适合你的规则复制进去。
+打开后，将 `templates/global-AGENTS.md` 中适合你的规则复制进去。若主要在 Windows 上使用 Codex，可再合并 `templates/windows/global-AGENTS.windows.md` 的增强规则。
 
 保留已有的个人规则，并将 AgentGuard 模板作为补充；不要盲目覆盖已有内容。
+
+### 可选：Windows 增强规则
+
+`templates/windows/global-AGENTS.windows.md` 不是完整替代品；它应与跨平台全局模板一起手动合并。它只补充 Windows 和 PowerShell 的编码、路径及 shell 约定，不会要求 Linux 或 macOS 项目使用 Windows 命令。
 
 ### 可选：完整替换全局 `AGENTS.md`
 
@@ -117,11 +124,25 @@ Copy-Item -LiteralPath .\templates\repo-AGENTS.md -Destination .\AGENTS.md
 
 - 不依赖默认编码、行尾、时区和当前目录；
 - 使用带空格、中文、emoji 的路径时正确引用；
-- PowerShell 中传递非 ASCII 内容时显式处理 UTF-8；
+- 使用项目要求的 shell 和解释器，不混用 shell 语法；
 - 复杂命令避免多层引号和重定向；
 - 不主动重写生成文件、第三方文件或项目已有格式。
 
-项目专属偏好不应放入全局模板。
+项目专属偏好不应放入全局模板。Codex 在新任务或新会话开始时构建规则链；编辑后请新开任务或重启相应会话。合并后的规则总大小也有限制，因此全局模板应保持简短。有关发现顺序、`CODEX_HOME` 和大小限制，请参阅 [Codex 官方 AGENTS.md 文档](https://learn.chatgpt.com/docs/agent-configuration/agents-md)。
+
+本机全局规则只服务于本机 Codex 环境；不要假设 Codex 云端或远程任务能读取你电脑上的 `.codex` 目录。
+
+## 公开模板安全边界
+
+公开的 `AGENTS.md` 模板不应包含：
+
+- 个人姓名、公司名称、私有仓库路径、内网域名；
+- API Key、Token、代理地址或 Git 凭据；
+- 某个项目专属的构建、测试和部署命令；
+- “每次都安装依赖”“每次都提交代码”等高侵入操作；
+- 强制所有系统使用 Windows 命令的规则。
+
+适合公开模板的内容包括编码和路径安全、尊重项目规则、PowerShell 非 ASCII 管道处理、以及不主动改写生成文件或第三方文件等通用约定。
 
 ## `doctor.ps1` 检查内容
 
@@ -188,4 +209,4 @@ AgentGuard 默认：
 
 ## 许可证
 
-建议使用 MIT License。
+本项目采用 [MIT License](LICENSE)。
