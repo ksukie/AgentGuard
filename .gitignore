@@ -1,0 +1,14 @@
+# Operating-system files
+.DS_Store
+Thumbs.db
+Desktop.ini
+
+# Editor and temporary files
+*.bak
+*.swp
+*.swo
+*.tmp
+*~
+
+# Local Codex diagnostic logs
+.codex-log/
