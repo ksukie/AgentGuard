@@ -2,15 +2,16 @@
 
 让 AI 编码代理在 Windows、macOS 和 Linux 上更稳定地执行任务。
 
-AgentGuard 是一套可复制的跨平台协作基线：
+AgentGuard v0.2.0 是一套可复制的跨平台协作基线：
 
 - `AGENTS.md` 模板：告诉 Codex 如何避免编码、换行和 shell 兼容性问题；
 - `doctor.ps1`：只读检查当前 Windows、PowerShell 和 Git 环境；
+- 可选的 Codex 连接诊断：检查本机代理、路由、进程连接和本地重试/HTTP 回退汇总；
 - 本 README：解释如何安装规则，以及发现风险后如何处理。
 
-它不会自动修改系统设置、Git 配置、文件编码或项目内容。
+它不会自动修改系统设置、Git 配置、文件编码、Codex 配置或项目内容。
 
-> 第一版是“跨平台规则模板 + Windows 优先的只读诊断脚本”，不是自动修复工具。
+> v0.2.0 仍是“跨平台规则模板 + Windows 优先的只读诊断脚本”，不是自动修复工具、代理切换器或常驻守护进程。
 
 ## 解决的问题
 
@@ -20,6 +21,7 @@ AgentGuard 是一套可复制的跨平台协作基线：
 - Linux/macOS shell 与 Windows PowerShell/Cmd 语法混用；
 - 中文、emoji、空格路径导致的任务失败；
 - AI 编码代理依赖本机默认环境而产生不稳定命令。
+- Codex/ChatGPT Desktop 是否实际连到声明的本地代理，以及本地是否出现可识别的流重试/HTTP 回退信号。
 
 ## 快速开始
 
@@ -36,6 +38,42 @@ powershell -NoProfile -File .\scripts\doctor.ps1
 ```
 
 `doctor.ps1` 严格只读：不会创建、删除、转换或覆盖任何文件，也不会修改 Git、PowerShell 或 Windows 设置。
+
+遇到 Codex 反复重连时，显式启用连接诊断（Windows v0.2.0）：
+
+```powershell
+pwsh -NoProfile -File .\scripts\doctor.ps1 -CodexConnectivity -SinceHours 24
+```
+
+`-CodexConnectivity` 仅检查本机状态，不会发起外部网络探测、切换节点、启用 TUN、修改系统代理或修改 Codex 配置。刚发生一次重连后，可以把窗口缩短为 `-SinceHours 1`，以便减少历史噪声。
+
+开发者可运行不触及本机设置或日志的自检：
+
+```powershell
+pwsh -NoProfile -File .\scripts\doctor.ps1 -SelfTest
+```
+
+PowerShell 自带帮助也提供参数说明：`Get-Help .\scripts\doctor.ps1 -Full`。
+
+## Codex 连接诊断（v0.2.0）
+
+连接诊断默认关闭，当前只在 Windows 实现。启用后，它按以下顺序进行只读观察：
+
+1. Windows 系统代理、当前进程的 `HTTP_PROXY` / `HTTPS_PROXY` / `ALL_PROXY`，以及仅变量名形式的持久环境变量；
+2. 声明为回环地址的本地代理端口是否正在监听；
+3. 名称或描述匹配 TUN、TAP、Wintun、WireGuard、VPN、Clash 或 Mihomo 的虚拟适配器是否承载 IPv4 默认路由；
+4. 正在运行的 Codex 或 ChatGPT Desktop 进程是否有已建立 TCP 连接，并且是否连向声明的本地代理端口；
+5. `CODEX_HOME`（或默认 `~/.codex`）根目录中 `logs*.sqlite` 的聚合结果：只统计固定的“流重试”和“回退 HTTP”信号的数量与最近时间。
+
+它不会读取 `auth.json`，不会输出提示词、日志正文、工作目录、令牌、代理凭据或远程代理主机；非回环代理端点只显示为 `<remote>:端口`。日志数据库以 SQLite 只读方式查询，结果只保留计数和时间。它也不会上传任何结果。
+
+| 结果 | 应如何理解 |
+| --- | --- |
+| `PASS`：本地代理端口监听且当前 Codex/ChatGPT Desktop 连向它 | 只能证明该时刻进程正在使用该本地代理，不能证明上游节点或 WebSocket 一定稳定。 |
+| `WARN`：存在虚拟默认路由、代理端口未监听、或有流重试 | 说明路由/代理或流传输值得复核；请结合代理客户端和节点日志判断。 |
+| `ACTION`：检测到可识别的 HTTP 回退记录 | 说明本机日志记录了该现象；这不是对某个节点、Codex 版本或服务端的唯一归因。 |
+
+这项检查刻意不自动写入任何 Codex provider 配置。公开的 [Codex 配置 schema](https://github.com/openai/codex/blob/main/codex-rs/core/config.schema.json) 中存在 `supports_websockets` 和 `stream_max_retries` 等字段，但它们的适用范围会随版本和登录/Provider 方式变化；诊断工具只报告证据，不替用户做配置决策。
 
 ## 将规则用于 Codex
 
@@ -146,7 +184,7 @@ Copy-Item -LiteralPath .\templates\repo-AGENTS.md -Destination .\AGENTS.md
 
 ## `doctor.ps1` 检查内容
 
-当前第一版重点检查 Windows：
+默认模式重点检查 Windows：
 
 - Windows PowerShell 5.1 与 PowerShell 7 是否存在；
 - Console Input/Output 编码与 `$OutputEncoding`；
@@ -154,6 +192,8 @@ Copy-Item -LiteralPath .\templates\repo-AGENTS.md -Destination .\AGENTS.md
 - `.editorconfig`、`.gitattributes`、`AGENTS.md` 是否存在；
 - 已跟踪文本文件是否出现 mixed 行尾；
 - 已跟踪的 `.ps1`、`.sh`、`.bat`、`.cmd` 的常见编码与换行风险。
+
+附加 `-CodexConnectivity` 后，才会执行上一节的连接诊断；默认模式不会枚举进程、读取网络状态或访问 `.codex` 日志数据库。
 
 检查结果分为：
 
@@ -191,21 +231,24 @@ AgentGuard 默认：
 
 - 不上传源代码；
 - 不访问密钥、Token 或 Git 凭据；
+- 不读取 Codex `auth.json`，也不显示本地日志正文；
 - 不修改 Windows 注册表、系统代码页或 PowerShell Profile；
 - 不改 Git 全局配置；
+- 不修改系统代理、TUN、路由、节点或 Codex provider 配置；
 - 不自动转换全仓文件；
 - 不扫描 `node_modules`、`vendor`、构建产物或二进制文件；
 - 不因单个合法 CRLF 文件要求整个仓库重写。
 
 ## 项目状态
 
-当前为 v0.1 MVP：
+当前为 v0.2.0：
 
 1. 跨平台 `AGENTS.md` 模板；
 2. Windows 优先、严格只读的 `doctor.ps1`；
-3. 清晰的平台化修复说明。
+3. 可选的 Codex 本机代理、路由、进程连接与本地重试/HTTP 回退诊断；
+4. 代理与日志隐私边界、结果解释和可重复自检。
 
-后续是否增加 CLI、自动修复、GitHub Action 或 Codex Plugin，取决于真实使用反馈。
+后续是否增加其他平台检测、GitHub Action、CLI 或自动修复，取决于真实使用反馈；任何自动修复都应保持显式授权和可撤销。
 
 ## 许可证
 

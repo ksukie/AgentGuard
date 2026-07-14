@@ -1,10 +1,47 @@
-﻿[CmdletBinding()]
+﻿<#
+.SYNOPSIS
+Runs AgentGuard's strictly read-only Windows environment diagnostic.
+
+.DESCRIPTION
+Checks repository encoding and line-ending risks by default. The optional
+CodexConnectivity mode adds local-only proxy, route, process-connection, and
+aggregate Codex retry/fallback checks. It does not change files or settings.
+
+.PARAMETER Path
+Directory to inspect for the repository checks. Defaults to the current directory.
+
+.PARAMETER CodexConnectivity
+Enables the optional Windows-only Codex connectivity diagnostic.
+
+.PARAMETER SinceHours
+Log lookback window for CodexConnectivity, from 1 to 720 hours. Defaults to 24.
+
+.PARAMETER SelfTest
+Runs parser and redaction checks without inspecting the machine or repository.
+
+.EXAMPLE
+pwsh -NoProfile -File .\scripts\doctor.ps1 -CodexConnectivity -SinceHours 24
+
+.EXAMPLE
+pwsh -NoProfile -File .\scripts\doctor.ps1 -SelfTest
+#>
+[CmdletBinding()]
 param(
     [Parameter()]
-    [string]$Path = (Get-Location).Path
+    [string]$Path = (Get-Location).Path,
+
+    [Parameter()]
+    [switch]$CodexConnectivity,
+
+    [Parameter()]
+    [ValidateRange(1, 720)]
+    [int]$SinceHours = 24,
+
+    [Parameter()]
+    [switch]$SelfTest
 )
 
-# AgentGuard v0.1: Windows-first, strictly read-only diagnostics.
+# AgentGuard v0.2.0: Windows-first, strictly read-only diagnostics.
 # This script intentionally does not create, modify, delete, convert, or upload files.
 
 Set-StrictMode -Version 2.0
@@ -128,6 +165,656 @@ function Get-GitAttributeEol {
     }
 
     return 'unspecified'
+}
+
+function Test-IsWindowsHost {
+    return [Environment]::OSVersion.Platform -eq [PlatformID]::Win32NT
+}
+
+function Test-LoopbackHost {
+    param([string]$HostName)
+
+    if ([string]::IsNullOrWhiteSpace($HostName)) {
+        return $false
+    }
+
+    $normalizedHost = $HostName.Trim()
+    if ($normalizedHost.StartsWith('[') -and $normalizedHost.EndsWith(']')) {
+        $normalizedHost = $normalizedHost.Substring(1, $normalizedHost.Length - 2)
+    }
+
+    if ($normalizedHost -ieq 'localhost') {
+        return $true
+    }
+
+    $address = $null
+    if ([System.Net.IPAddress]::TryParse($normalizedHost, [ref]$address)) {
+        return [System.Net.IPAddress]::IsLoopback($address)
+    }
+
+    return $false
+}
+
+function Get-ProxyEndpointInfo {
+    param(
+        [AllowEmptyString()]
+        [string]$Value,
+
+        [string]$Source = 'unknown'
+    )
+
+    $endpoints = @()
+    if ([string]::IsNullOrWhiteSpace($Value)) {
+        return $endpoints
+    }
+
+    foreach ($part in $Value -split ';') {
+        $candidate = $part.Trim()
+        if ([string]::IsNullOrWhiteSpace($candidate)) {
+            continue
+        }
+
+        $kind = 'proxy'
+        if ($candidate -match '^([A-Za-z][A-Za-z0-9+.-]*)=(.+)$') {
+            $kind = $Matches[1]
+            $candidate = $Matches[2].Trim()
+        }
+
+        if ($candidate -notmatch '^[A-Za-z][A-Za-z0-9+.-]*://') {
+            $candidate = 'http://' + $candidate
+        }
+
+        try {
+            $uri = New-Object System.Uri($candidate)
+            if ([string]::IsNullOrWhiteSpace($uri.Host)) {
+                continue
+            }
+
+            $endpoints += [PSCustomObject]@{
+                Source = $Source
+                Kind = $kind
+                Host = $uri.Host
+                Port = $uri.Port
+                IsLoopback = Test-LoopbackHost -HostName $uri.Host
+            }
+        }
+        catch {
+            # A malformed proxy value is reported by the caller without echoing it.
+        }
+    }
+
+    return $endpoints
+}
+
+function Format-ProxyEndpoint {
+    param([Parameter(Mandatory = $true)]$Endpoint)
+
+    if ($Endpoint.IsLoopback) {
+        return ('{0}:{1}' -f $Endpoint.Host, $Endpoint.Port)
+    }
+
+    return ('<remote>:{0}' -f $Endpoint.Port)
+}
+
+function Get-SystemProxyState {
+    if (-not (Test-IsWindowsHost)) {
+        return $null
+    }
+
+    try {
+        $settings = Get-ItemProperty -LiteralPath 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Internet Settings' -ErrorAction Stop
+        $proxyEnableProperty = $settings.PSObject.Properties['ProxyEnable']
+        $proxyServerProperty = $settings.PSObject.Properties['ProxyServer']
+        $autoDetectProperty = $settings.PSObject.Properties['AutoDetect']
+        $autoConfigUrlProperty = $settings.PSObject.Properties['AutoConfigURL']
+        $proxyValue = if ($null -ne $proxyServerProperty) { [string]$proxyServerProperty.Value } else { '' }
+        return [PSCustomObject]@{
+            Enabled = ($null -ne $proxyEnableProperty -and [int]$proxyEnableProperty.Value -ne 0)
+            AutoDetect = ($null -ne $autoDetectProperty -and [int]$autoDetectProperty.Value -ne 0)
+            HasAutoConfigUrl = ($null -ne $autoConfigUrlProperty -and -not [string]::IsNullOrWhiteSpace([string]$autoConfigUrlProperty.Value))
+            Endpoints = @(Get-ProxyEndpointInfo -Value $proxyValue -Source 'Windows system proxy')
+        }
+    }
+    catch {
+        Add-Result -Level 'INFO' -Message '无法读取 Windows 系统代理设置。'
+        return $null
+    }
+}
+
+function Test-ProxyEnvironment {
+    $proxyNames = @('HTTP_PROXY', 'HTTPS_PROXY', 'ALL_PROXY')
+    $names = @($proxyNames + 'NO_PROXY')
+    $processEntries = @()
+    foreach ($name in $proxyNames) {
+        $value = [Environment]::GetEnvironmentVariable($name, 'Process')
+        if (-not [string]::IsNullOrWhiteSpace($value)) {
+            $processEntries += [PSCustomObject]@{
+                Name = $name
+                Endpoints = @(Get-ProxyEndpointInfo -Value $value -Source ('process environment {0}' -f $name))
+            }
+        }
+    }
+
+    if (-not [string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable('NO_PROXY', 'Process'))) {
+        Add-Result -Level 'INFO' -Message '当前诊断进程检测到 NO_PROXY（值已省略）。'
+    }
+
+    if ($processEntries.Count -eq 0) {
+        Add-Result -Level 'INFO' -Message '当前诊断进程未检测到 HTTP_PROXY、HTTPS_PROXY 或 ALL_PROXY。'
+    }
+    else {
+        foreach ($entry in $processEntries) {
+            $formatted = @($entry.Endpoints | ForEach-Object { Format-ProxyEndpoint -Endpoint $_ })
+            if ($formatted.Count -gt 0) {
+                Add-Result -Level 'INFO' -Message ('当前诊断进程检测到 {0}: {1}' -f $entry.Name, ($formatted -join ', '))
+            }
+            else {
+                Add-Result -Level 'WARN' -Message ('当前诊断进程检测到 {0}，但值不是可识别的代理地址。' -f $entry.Name)
+            }
+        }
+    }
+
+    if (-not (Test-IsWindowsHost)) {
+        return
+    }
+
+    try {
+        $userEnvironment = Get-ItemProperty -LiteralPath 'HKCU:\Environment' -ErrorAction Stop
+        $persistentNames = @($userEnvironment.PSObject.Properties |
+            Where-Object { $names -contains $_.Name.ToUpperInvariant() } |
+            Select-Object -ExpandProperty Name)
+        if ($persistentNames.Count -eq 0) {
+            Add-Result -Level 'INFO' -Message '用户持久环境变量中未检测到标准代理变量。'
+        }
+        else {
+            Add-Result -Level 'INFO' -Message ('用户持久环境变量中检测到: {0}' -f ($persistentNames -join ', '))
+        }
+    }
+    catch {
+        Add-Result -Level 'INFO' -Message '无法读取用户持久环境变量。'
+    }
+}
+
+function Test-SystemProxy {
+    param($SystemProxy)
+
+    if ($null -eq $SystemProxy) {
+        return
+    }
+
+    if (-not $SystemProxy.Enabled) {
+        if ($SystemProxy.Endpoints.Count -gt 0) {
+            Add-Result -Level 'INFO' -Message 'Windows 系统代理保存了端点，但当前未启用。'
+        }
+        else {
+            Add-Result -Level 'INFO' -Message 'Windows 系统代理未启用。'
+        }
+        return
+    }
+
+    $formatted = @($SystemProxy.Endpoints | ForEach-Object { Format-ProxyEndpoint -Endpoint $_ })
+    if ($formatted.Count -eq 0) {
+        Add-Result -Level 'WARN' -Message 'Windows 系统代理已启用，但未能解析代理端点。'
+    }
+    else {
+        Add-Result -Level 'PASS' -Message ('Windows 系统代理已启用: {0}' -f ($formatted -join ', '))
+    }
+
+    if ($SystemProxy.AutoDetect -or $SystemProxy.HasAutoConfigUrl) {
+        Add-Result -Level 'INFO' -Message 'Windows 还启用了代理自动发现或 PAC；实际路由可能不同于静态代理端点。'
+    }
+}
+
+function Test-LocalProxyListeners {
+    param($SystemProxy)
+
+    if ($null -eq $SystemProxy -or -not $SystemProxy.Enabled) {
+        return
+    }
+
+    $localEndpoints = @($SystemProxy.Endpoints | Where-Object { $_.IsLoopback })
+    if ($localEndpoints.Count -eq 0) {
+        return
+    }
+
+    if ($null -eq (Get-Command -Name 'Get-NetTCPConnection' -ErrorAction SilentlyContinue)) {
+        Add-Result -Level 'INFO' -Message '当前 PowerShell 不提供 Get-NetTCPConnection；跳过本地代理监听检查。'
+        return
+    }
+
+    try {
+        $listeners = @(Get-NetTCPConnection -State Listen -ErrorAction Stop)
+        foreach ($endpoint in $localEndpoints) {
+            $matches = @($listeners | Where-Object {
+                $_.LocalPort -eq $endpoint.Port -and
+                (Test-LoopbackHost -HostName ([string]$_.LocalAddress) -or $_.LocalAddress -eq '0.0.0.0' -or $_.LocalAddress -eq '::')
+            })
+            if ($matches.Count -gt 0) {
+                Add-Result -Level 'PASS' -Message ('本地代理端口正在监听: {0}' -f (Format-ProxyEndpoint -Endpoint $endpoint))
+            }
+            else {
+                Add-Result -Level 'WARN' -Message ('系统代理指向 {0}，但未发现对应的本地监听端口。' -f (Format-ProxyEndpoint -Endpoint $endpoint))
+            }
+        }
+    }
+    catch {
+        Add-Result -Level 'INFO' -Message '无法读取本地 TCP 监听状态。'
+    }
+}
+
+function Get-CodexProcesses {
+    $processes = @()
+    foreach ($process in @(Get-Process -ErrorAction SilentlyContinue)) {
+        $path = ''
+        try {
+            $path = [string]$process.Path
+        }
+        catch {
+            $path = ''
+        }
+
+        $isCodex = $process.ProcessName -ieq 'codex'
+        $isChatGpt = $process.ProcessName -ieq 'ChatGPT'
+        $isBundledCodex = $path -match '(?i)\\openai\.chatgpt-|\\OpenAI\.Codex_'
+        if ($isCodex -or $isChatGpt -or $isBundledCodex) {
+            $processes += $process
+        }
+    }
+
+    return @($processes)
+}
+
+function Test-CodexProcessConnections {
+    param($SystemProxy)
+
+    $processes = @(Get-CodexProcesses)
+    if ($processes.Count -eq 0) {
+        Add-Result -Level 'INFO' -Message '未发现正在运行的 Codex 或 ChatGPT Desktop 进程；跳过实时连接归因。'
+        return [PSCustomObject]@{
+            ProcessCount = 0
+            HasConnections = $false
+            ViaLocalProxy = $false
+        }
+    }
+
+    Add-Result -Level 'INFO' -Message ('检测到 {0} 个 Codex 或 ChatGPT Desktop 进程。' -f $processes.Count)
+    if ($null -eq (Get-Command -Name 'Get-NetTCPConnection' -ErrorAction SilentlyContinue)) {
+        Add-Result -Level 'INFO' -Message '当前 PowerShell 不提供 Get-NetTCPConnection；跳过实时连接归因。'
+        return [PSCustomObject]@{
+            ProcessCount = $processes.Count
+            HasConnections = $false
+            ViaLocalProxy = $false
+        }
+    }
+
+    try {
+        $ids = @($processes | Select-Object -ExpandProperty Id)
+        $connections = @(Get-NetTCPConnection -State Established -ErrorAction Stop |
+            Where-Object { $ids -contains $_.OwningProcess })
+        if ($connections.Count -eq 0) {
+            Add-Result -Level 'INFO' -Message '未发现 Codex 或 ChatGPT Desktop 的已建立 TCP 连接。'
+            return [PSCustomObject]@{
+                ProcessCount = $processes.Count
+                HasConnections = $false
+                ViaLocalProxy = $false
+            }
+        }
+
+        $localProxyEndpoints = @()
+        if ($null -ne $SystemProxy -and $SystemProxy.Enabled) {
+            $localProxyEndpoints = @($SystemProxy.Endpoints | Where-Object { $_.IsLoopback })
+        }
+
+        $viaLocalProxy = @($connections | Where-Object {
+            $connection = $_
+            @($localProxyEndpoints | Where-Object {
+                $connection.RemotePort -eq $_.Port -and (Test-LoopbackHost -HostName ([string]$connection.RemoteAddress))
+            }).Count -gt 0
+        })
+
+        if ($viaLocalProxy.Count -gt 0) {
+            Add-Result -Level 'PASS' -Message ('检测到 {0} 条 Codex 或 ChatGPT Desktop 连接正在使用声明的本地代理。' -f $viaLocalProxy.Count)
+        }
+        elseif ($localProxyEndpoints.Count -gt 0) {
+            Add-Result -Level 'WARN' -Message '系统代理已指向本地端口，但当前 Codex 或 ChatGPT Desktop 连接未显示为连向该端口。'
+        }
+        else {
+            Add-Result -Level 'INFO' -Message ('检测到 {0} 条 Codex 或 ChatGPT Desktop 已建立连接，但没有可归因的本地代理端点。' -f $connections.Count)
+        }
+
+        return [PSCustomObject]@{
+            ProcessCount = $processes.Count
+            HasConnections = $true
+            ViaLocalProxy = ($viaLocalProxy.Count -gt 0)
+        }
+    }
+    catch {
+        Add-Result -Level 'INFO' -Message '无法读取 Codex 或 ChatGPT Desktop 的 TCP 连接。'
+        return [PSCustomObject]@{
+            ProcessCount = $processes.Count
+            HasConnections = $false
+            ViaLocalProxy = $false
+        }
+    }
+}
+
+function Test-VirtualDefaultRoutes {
+    if ($null -eq (Get-Command -Name 'Get-NetAdapter' -ErrorAction SilentlyContinue) -or
+        $null -eq (Get-Command -Name 'Get-NetRoute' -ErrorAction SilentlyContinue)) {
+        Add-Result -Level 'INFO' -Message '当前 PowerShell 不提供完整网络适配器或路由查询；跳过 TUN 路由检查。'
+        return
+    }
+
+    try {
+        $pattern = '(?i)(tun|tap|wintun|wireguard|vpn|clash|mihomo|meta)'
+        $virtualAdapters = @(Get-NetAdapter -ErrorAction Stop | Where-Object {
+            (([string]$_.Name + ' ' + [string]$_.InterfaceDescription) -match $pattern)
+        })
+        if ($virtualAdapters.Count -eq 0) {
+            Add-Result -Level 'PASS' -Message '未检测到名称或描述匹配的 TUN、TAP、VPN 或代理虚拟适配器。'
+            return
+        }
+
+        $defaultRoutes = @(Get-NetRoute -AddressFamily IPv4 -ErrorAction Stop |
+            Where-Object { $_.DestinationPrefix -eq '0.0.0.0/0' })
+        $routeAdapters = @()
+        foreach ($adapter in $virtualAdapters) {
+            $matchingRoutes = @($defaultRoutes | Where-Object { $_.InterfaceIndex -eq $adapter.ifIndex })
+            if ($matchingRoutes.Count -gt 0) {
+                $routeAdapters += $adapter
+            }
+        }
+
+        if ($routeAdapters.Count -gt 0) {
+            Add-Result -Level 'WARN' -Message ('检测到虚拟适配器承载默认路由: {0}。透明路由可能掩盖逐进程代理配置。' -f (($routeAdapters | Select-Object -ExpandProperty Name) -join ', '))
+        }
+        else {
+            Add-Result -Level 'INFO' -Message ('检测到虚拟适配器，但未见其承载 IPv4 默认路由: {0}' -f (($virtualAdapters | Select-Object -ExpandProperty Name) -join ', '))
+        }
+    }
+    catch {
+        Add-Result -Level 'INFO' -Message '无法读取虚拟适配器或默认路由。'
+    }
+}
+
+function Initialize-AgentGuardSqliteReader {
+    if ($null -ne ('AgentGuard.SqliteReader' -as [type])) {
+        return $true
+    }
+
+    $source = @'
+using System;
+using System.Runtime.InteropServices;
+using System.Text;
+
+namespace AgentGuard
+{
+    public static class SqliteReader
+    {
+        private const int SqliteOk = 0;
+        private const int SqliteRow = 100;
+        private const int SqliteOpenReadOnly = 1;
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_open_v2(byte[] filename, out IntPtr db, int flags, IntPtr vfs);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_close_v2(IntPtr db);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_prepare_v2(IntPtr db, string sql, int bytes, out IntPtr statement, IntPtr tail);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_step(IntPtr statement);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_finalize(IntPtr statement);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern int sqlite3_column_count(IntPtr statement);
+
+        [DllImport("winsqlite3.dll", CallingConvention = CallingConvention.Cdecl)]
+        private static extern IntPtr sqlite3_column_text(IntPtr statement, int column);
+
+        private static string ReadText(IntPtr value)
+        {
+            return value == IntPtr.Zero ? string.Empty : (Marshal.PtrToStringAnsi(value) ?? string.Empty);
+        }
+
+        public static string QueryFirstRow(string path, string sql)
+        {
+            IntPtr db = IntPtr.Zero;
+            IntPtr statement = IntPtr.Zero;
+            try
+            {
+                var utf8Path = Encoding.UTF8.GetBytes(path + "\0");
+                if (sqlite3_open_v2(utf8Path, out db, SqliteOpenReadOnly, IntPtr.Zero) != SqliteOk)
+                {
+                    return null;
+                }
+
+                if (sqlite3_prepare_v2(db, sql, -1, out statement, IntPtr.Zero) != SqliteOk)
+                {
+                    return null;
+                }
+
+                if (sqlite3_step(statement) != SqliteRow)
+                {
+                    return null;
+                }
+
+                var values = new StringBuilder();
+                var count = sqlite3_column_count(statement);
+                for (var index = 0; index < count; index++)
+                {
+                    if (index > 0)
+                    {
+                        values.Append('\t');
+                    }
+
+                    values.Append(ReadText(sqlite3_column_text(statement, index)));
+                }
+
+                return values.ToString();
+            }
+            finally
+            {
+                if (statement != IntPtr.Zero)
+                {
+                    sqlite3_finalize(statement);
+                }
+
+                if (db != IntPtr.Zero)
+                {
+                    sqlite3_close_v2(db);
+                }
+            }
+        }
+    }
+}
+'@
+
+    try {
+        Add-Type -TypeDefinition $source -Language CSharp -ErrorAction Stop
+        return $true
+    }
+    catch {
+        return $false
+    }
+}
+
+function Get-UnixTimeSeconds {
+    $epoch = [DateTime]::SpecifyKind([DateTime]'1970-01-01T00:00:00', [DateTimeKind]::Utc)
+    return [Int64][Math]::Floor(([DateTime]::UtcNow - $epoch).TotalSeconds)
+}
+
+function Convert-UnixTimeSeconds {
+    param([Int64]$Seconds)
+
+    if ($Seconds -le 0) {
+        return 'unknown'
+    }
+
+    $epoch = [DateTime]::SpecifyKind([DateTime]'1970-01-01T00:00:00', [DateTimeKind]::Utc)
+    return $epoch.AddSeconds([double]$Seconds).ToLocalTime().ToString('yyyy-MM-dd HH:mm:ss')
+}
+
+function Get-CodexLogSummary {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$CodexHome,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Hours
+    )
+
+    $databases = @(Get-ChildItem -LiteralPath $CodexHome -Filter 'logs*.sqlite' -File -ErrorAction SilentlyContinue |
+        Sort-Object LastWriteTime -Descending)
+    if ($databases.Count -eq 0) {
+        return $null
+    }
+
+    if (-not (Test-Path -LiteralPath (Join-Path $env:WINDIR 'System32\winsqlite3.dll'))) {
+        Add-Result -Level 'INFO' -Message '未检测到 Windows SQLite 运行库；跳过 Codex 日志聚合。'
+        return $null
+    }
+
+    if (-not (Initialize-AgentGuardSqliteReader)) {
+        Add-Result -Level 'INFO' -Message '无法初始化只读 SQLite 查询；跳过 Codex 日志聚合。'
+        return $null
+    }
+
+    $since = (Get-UnixTimeSeconds) - ([Int64]$Hours * 3600)
+    $sql = @"
+SELECT
+  COALESCE(SUM(CASE WHEN target = 'codex_core::responses_retry'
+    AND instr(COALESCE(feedback_log_body, ''), 'stream disconnected - retrying sampling request') > 0
+    THEN 1 ELSE 0 END), 0),
+  COALESCE(MAX(CASE WHEN target = 'codex_core::responses_retry'
+    AND instr(COALESCE(feedback_log_body, ''), 'stream disconnected - retrying sampling request') > 0
+    THEN ts ELSE 0 END), 0),
+  COALESCE(SUM(CASE WHEN target = 'codex_core::client'
+    AND instr(COALESCE(feedback_log_body, ''), 'falling back to HTTP') > 0
+    THEN 1 ELSE 0 END), 0),
+  COALESCE(MAX(CASE WHEN target = 'codex_core::client'
+    AND instr(COALESCE(feedback_log_body, ''), 'falling back to HTTP') > 0
+    THEN ts ELSE 0 END), 0)
+FROM logs
+WHERE ts >= $since
+"@
+
+    $summary = [PSCustomObject]@{
+        RetryCount = [Int64]0
+        RetryLast = [Int64]0
+        FallbackCount = [Int64]0
+        FallbackLast = [Int64]0
+        DatabaseCount = 0
+    }
+
+    foreach ($database in $databases) {
+        try {
+            $row = [AgentGuard.SqliteReader]::QueryFirstRow($database.FullName, $sql)
+            if ([string]::IsNullOrWhiteSpace($row)) {
+                continue
+            }
+
+            $values = @($row.Split([char]9))
+            if ($values.Count -ne 4) {
+                continue
+            }
+
+            $summary.RetryCount += [Int64]$values[0]
+            $summary.RetryLast = [Math]::Max($summary.RetryLast, [Int64]$values[1])
+            $summary.FallbackCount += [Int64]$values[2]
+            $summary.FallbackLast = [Math]::Max($summary.FallbackLast, [Int64]$values[3])
+            $summary.DatabaseCount++
+        }
+        catch {
+            # Keep the diagnostic usable when one rotated log database is unavailable.
+        }
+    }
+
+    if ($summary.DatabaseCount -eq 0) {
+        Add-Result -Level 'INFO' -Message 'Codex 日志数据库不可读或使用了未识别的结构；跳过日志聚合。'
+        return $null
+    }
+
+    return $summary
+}
+
+function Test-CodexConnectivity {
+    param([int]$Hours)
+
+    if (-not (Test-IsWindowsHost)) {
+        Add-Result -Level 'INFO' -Message 'Codex 连接诊断 v0.2 目前仅实现 Windows 检测；已跳过。'
+        return
+    }
+
+    Add-Result -Level 'INFO' -Message ('Codex 连接诊断窗口: 最近 {0} 小时。' -f $Hours)
+    Test-ProxyEnvironment
+    $systemProxy = Get-SystemProxyState
+    Test-SystemProxy -SystemProxy $systemProxy
+    Test-LocalProxyListeners -SystemProxy $systemProxy
+    Test-VirtualDefaultRoutes
+    $connectionState = Test-CodexProcessConnections -SystemProxy $systemProxy
+
+    $codexHome = if (-not [string]::IsNullOrWhiteSpace($env:CODEX_HOME)) {
+        $env:CODEX_HOME
+    }
+    else {
+        Join-Path $HOME '.codex'
+    }
+
+    if (-not (Test-Path -LiteralPath $codexHome -PathType Container)) {
+        Add-Result -Level 'INFO' -Message '未找到 CODEX_HOME 或默认 .codex 目录；跳过本地日志聚合。'
+        return
+    }
+
+    $logSummary = Get-CodexLogSummary -CodexHome $codexHome -Hours $Hours
+    if ($null -eq $logSummary) {
+        return
+    }
+
+    Add-Result -Level 'INFO' -Message ('已对 {0} 个 Codex 日志数据库执行只读聚合。' -f $logSummary.DatabaseCount)
+
+    if ($logSummary.FallbackCount -gt 0) {
+        $lastFallback = Convert-UnixTimeSeconds -Seconds $logSummary.FallbackLast
+        if ($connectionState.ViaLocalProxy) {
+            Add-Result -Level 'ACTION' -Message ('过去 {0} 小时检测到 {1} 条流重试记录和 {2} 次 HTTP 回退记录，最近一次回退 {3}。当前快照显示 Codex 已连向本地代理；请优先复核代理上游和 WebSocket 兼容性。' -f $Hours, $logSummary.RetryCount, $logSummary.FallbackCount, $lastFallback)
+        }
+        else {
+            Add-Result -Level 'ACTION' -Message ('过去 {0} 小时检测到 {1} 条流重试记录和 {2} 次 HTTP 回退记录，最近一次回退 {3}。请结合代理、路由和节点日志复核。' -f $Hours, $logSummary.RetryCount, $logSummary.FallbackCount, $lastFallback)
+        }
+    }
+    elseif ($logSummary.RetryCount -gt 0) {
+        $lastRetry = Convert-UnixTimeSeconds -Seconds $logSummary.RetryLast
+        Add-Result -Level 'WARN' -Message ('过去 {0} 小时检测到 {1} 条 Codex 流重试记录，最近一次 {2}；未发现可识别的 HTTP 回退记录。' -f $Hours, $logSummary.RetryCount, $lastRetry)
+    }
+    else {
+        Add-Result -Level 'PASS' -Message ('过去 {0} 小时未发现可识别的 Codex 流重试或 HTTP 回退记录。' -f $Hours)
+    }
+}
+
+function Invoke-DoctorSelfTest {
+    $endpoints = @(Get-ProxyEndpointInfo -Value 'http=127.0.0.1:7897;https=[::1]:7898' -Source 'self-test')
+    if ($endpoints.Count -ne 2) {
+        throw 'Proxy endpoint parser did not return two endpoints.'
+    }
+
+    if (-not $endpoints[0].IsLoopback -or $endpoints[0].Port -ne 7897) {
+        throw 'Proxy endpoint parser did not recognize an IPv4 loopback proxy.'
+    }
+
+    if (-not $endpoints[1].IsLoopback -or $endpoints[1].Port -ne 7898) {
+        throw 'Proxy endpoint parser did not recognize an IPv6 loopback proxy.'
+    }
+
+    $remote = @(Get-ProxyEndpointInfo -Value 'https://user:secret@example.com:8443' -Source 'self-test')[0]
+    if ((Format-ProxyEndpoint -Endpoint $remote) -match 'example\.com|secret|user') {
+        throw 'Proxy endpoint formatter exposed a remote host or credential.'
+    }
+
+    Write-Output 'AgentGuard doctor v0.2.0 self-test passed.'
 }
 
 function Test-PowerShellEnvironment {
@@ -320,7 +1007,7 @@ function Show-Results {
     }
 
     Write-Output ''
-    Write-Output 'AgentGuard doctor (strictly read-only)'
+    Write-Output 'AgentGuard doctor v0.2.0 (strictly read-only)'
     Write-Output '========================================'
 
     foreach ($result in $script:Results) {
@@ -343,6 +1030,11 @@ function Show-Results {
     Write-Output 'No files or settings were changed.'
 }
 
+if ($SelfTest) {
+    Invoke-DoctorSelfTest
+    return
+}
+
 $resolvedPath = $null
 try {
     $resolvedPath = (Resolve-Path -LiteralPath $Path -ErrorAction Stop).Path
@@ -362,4 +1054,7 @@ if (-not (Test-Path -LiteralPath $resolvedPath -PathType Container)) {
 Add-Result -Level 'INFO' -Message ("检查目标: {0}" -f $resolvedPath)
 Test-PowerShellEnvironment
 Test-RepositoryFiles -TargetPath $resolvedPath
+if ($CodexConnectivity) {
+    Test-CodexConnectivity -Hours $SinceHours
+}
 Show-Results
