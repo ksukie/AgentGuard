@@ -1,0 +1,43 @@
+# Codex 连接诊断
+
+[← 返回主页](../README.md)
+
+当 Codex 或 ChatGPT Desktop 反复重连、流中断或回退 HTTP 时，使用 `-CodexConnectivity` 收集本机证据。该功能默认关闭，目前仅支持 Windows。
+
+## 运行
+
+```powershell
+# 查看最近 24 小时的状态与日志信号
+pwsh -NoProfile -File .\scripts\doctor.ps1 -CodexConnectivity -SinceHours 24
+
+# 刚发生重连时，缩短窗口以减少历史噪声
+pwsh -NoProfile -File .\scripts\doctor.ps1 -CodexConnectivity -SinceHours 1
+```
+
+`-SinceHours` 支持 1 到 720 小时。
+
+## 检查内容
+
+| 信号 | 检查方式 | 如何理解 |
+| --- | --- | --- |
+| 系统与环境代理 | Windows 系统代理、`HTTP_PROXY`、`HTTPS_PROXY`、`ALL_PROXY`。 | 确认声明的代理路径；远程主机与凭据不会显示。 |
+| 本地代理监听 | 回环代理端口是否处于监听状态。 | 系统代理指向本地端口但端口未监听，通常应先检查代理客户端。 |
+| 透明路由 | TUN、TAP、Wintun、WireGuard、VPN、Clash、Mihomo 等虚拟适配器的 IPv4 默认路由。 | 虚拟默认路由可能掩盖逐进程代理设置。 |
+| 当前进程连接 | Codex / ChatGPT Desktop 的已建立 TCP 连接是否连向声明的本地代理。 | 只证明诊断当下的路径，不能证明先前一次失败的完整路径。 |
+| 本地日志汇总 | `CODEX_HOME`（默认 `~/.codex`）的 `logs*.sqlite` 中流重试与 HTTP 回退记录。 | 只输出数量和最近时间，不输出日志正文。 |
+
+## 如何排查
+
+1. 出现 `ACTION` 时，先用 `-SinceHours 1` 重跑，确认信号是否贴近刚才的重连。
+2. 若系统代理未启用或本地端口未监听，先检查代理客户端；不要先修改 Codex 配置。
+3. 若检测到虚拟默认路由，确认你是否有意使用 TUN/透明代理，并结合代理客户端的路由模式复核。
+4. 若当前进程已连向本地代理但仍有 HTTP 回退记录，优先检查代理上游和 WebSocket 兼容性。
+
+`ACTION` 是本机观察到的证据，不会自动归因到某个节点、Codex 版本或服务端，也不会自动修复任何设置。
+
+## 隐私与限制
+
+- 不发起外部网络请求，不切换节点，不启用 TUN；
+- 不读取 `auth.json`，不显示提示词、日志正文、工作目录、Token、代理凭据或远程代理主机；
+- 不修改 Windows 注册表、系统代理、路由、节点或 Codex provider 配置；
+- 日志签名随 Codex 版本变化；未检测到信号不等于绝对没有发生过连接问题。
