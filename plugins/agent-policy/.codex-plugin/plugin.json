@@ -1,7 +1,7 @@
 {
   "name": "agent-policy",
-  "version": "0.3.0",
-  "description": "Read-only Agent and Codex diagnostics with AGENTS.md policy guidance.",
+  "version": "0.4.0",
+  "description": "Explicit Agent/Codex diagnostics, AGENTS.md policy guidance, and task-context reconstruction.",
   "author": {
     "name": "ksukie",
     "url": "https://github.com/ksukie"
@@ -14,13 +14,14 @@
     "codex",
     "diagnostics",
     "agents-md",
+    "task-context",
     "powershell"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "AgentPolicy",
-    "shortDescription": "Diagnose Agent environments and guide AGENTS.md policy.",
-    "longDescription": "Use one explicit AgentPolicy entry for read-only repository diagnostics, Windows Codex connectivity troubleshooting, and AGENTS.md policy-template guidance.",
+    "shortDescription": "Diagnose Agents, guide policies, and structure task context.",
+    "longDescription": "Use one explicit AgentPolicy entry for Agent/Codex diagnostics, AGENTS.md policy templates, and coherent task-context reconstruction for continuation.",
     "developerName": "ksukie",
     "category": "Developer Tools",
     "capabilities": [
@@ -28,9 +29,9 @@
     ],
     "websiteURL": "https://github.com/ksukie/AgentGuard",
     "defaultPrompt": [
-      "Use @AgentPolicy to show available diagnostics and policy guidance.",
-      "Use @AgentPolicy to diagnose the current repository.",
-      "Use @AgentPolicy to troubleshoot recent Codex reconnects."
+      "Use @AgentPolicy to diagnose the current Agent or Codex environment.",
+      "Use @AgentPolicy to show an AGENTS.md policy template.",
+      "Use @AgentPolicy to structure the current task context for continuation."
     ]
   }
 }

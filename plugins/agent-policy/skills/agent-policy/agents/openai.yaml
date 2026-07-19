@@ -1,7 +1,7 @@
 interface:
   display_name: "AgentPolicy"
-  short_description: "Diagnose Agent environments and guide AGENTS.md policy"
-  default_prompt: "Use $agent-policy to show available diagnostics and AGENTS.md policy guidance."
+  short_description: "Diagnose Agents, guide policies, and structure context"
+  default_prompt: "Use $agent-policy to show diagnostics, policy guidance, and task-context structuring."
 
 policy:
   allow_implicit_invocation: false

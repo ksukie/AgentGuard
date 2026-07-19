@@ -1,9 +1,9 @@
 {
-  "version": "0.3.0",
-  "released_at": "2026-07-17T09:56:48Z",
-  "release_sequence": 3,
+  "version": "0.4.0",
+  "released_at": "2026-07-19T12:24:51Z",
+  "release_sequence": 4,
   "summary": {
-    "zh-CN": "新增唯一 AgentPolicy 入口、Python 默认编码风险诊断和低频更新提醒，并完善内部测试。",
-    "en": "Adds the single AgentPolicy entry, Python locale-encoding diagnostics, low-frequency update notices, and internal-only tests."
+    "zh-CN": "新增仅显式调用的三项 AgentPolicy 能力、任务上下文梳理，并将更新检查限制在显式调用后。",
+    "en": "Adds three explicitly invoked AgentPolicy capabilities, task-context reconstruction, and update checks limited to explicit invocations."
   }
 }

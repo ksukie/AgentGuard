@@ -19,6 +19,17 @@ SCRIPT_PATH = (
     / "scripts"
     / "check_update.py"
 )
+SKILL_PATH = SCRIPT_PATH.parent.parent / "SKILL.md"
+OPENAI_YAML_PATH = (
+    ROOT
+    / "plugins"
+    / "agent-policy"
+    / "skills"
+    / "agent-policy"
+    / "agents"
+    / "openai.yaml"
+)
+HOOK_PATH = ROOT / "plugins" / "agent-policy" / "hooks" / "hooks.json"
 SPEC = importlib.util.spec_from_file_location("agent_policy_update_check", SCRIPT_PATH)
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError("Unable to load update checker")
@@ -118,13 +129,25 @@ class UpdateSchedulerTests(unittest.TestCase):
         self.assertEqual(result["status"], "check_failed")
         self.assertEqual(self.read_state()["next_check_at"], "2026-07-20T12:00:00Z")
 
-    def test_invocation_and_skip_detection_are_explicit(self) -> None:
-        self.assertTrue(UPDATE.is_explicit_invocation("@AgentPolicy 你能做什么"))
-        self.assertTrue(UPDATE.is_explicit_invocation("Use $agent-policy to inspect this repo"))
-        self.assertFalse(UPDATE.is_explicit_invocation("AgentPolicy sounds useful"))
-        self.assertTrue(
-            UPDATE.prompt_skips_update_check("@AgentPolicy 本次不要检查更新")
-        )
+    def test_plugin_is_dormant_until_explicit_invocation(self) -> None:
+        self.assertFalse(HOOK_PATH.exists())
+        metadata = OPENAI_YAML_PATH.read_text(encoding="utf-8")
+        self.assertIn("allow_implicit_invocation: false", metadata)
+
+    def test_menu_has_exactly_three_public_capabilities(self) -> None:
+        skill = SKILL_PATH.read_text(encoding="utf-8")
+        catalog = skill.split("```text", 1)[1].split("```", 1)[0]
+        numbered = [
+            line.strip()
+            for line in catalog.splitlines()
+            if len(line.strip()) > 2
+            and line.strip()[0].isdigit()
+            and line.strip()[1:3] == ". "
+        ]
+        self.assertEqual([line[:2] for line in numbered], ["1.", "2.", "3."])
+        self.assertIn("Agent/Codex 诊断", catalog)
+        self.assertIn("AGENTS.md 策略模板", catalog)
+        self.assertIn("任务上下文梳理与续接", catalog)
 
     def test_plugin_data_is_the_only_plugin_state_override(self) -> None:
         plugin_data = str(Path(self.temporary.name) / "plugin-data")
