@@ -10,5 +10,9 @@ Desktop.ini
 *.tmp
 *~
 
+# Python test caches
+__pycache__/
+*.py[cod]
+
 # Local Codex diagnostic logs
 .codex-log/

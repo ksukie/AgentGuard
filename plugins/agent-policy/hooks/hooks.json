@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "if command -v python3 >/dev/null 2>&1; then python3 \"$PLUGIN_ROOT/skills/agent-policy/scripts/check_update.py\" --hook 2>/dev/null || true; elif command -v python >/dev/null 2>&1; then python \"$PLUGIN_ROOT/skills/agent-policy/scripts/check_update.py\" --hook 2>/dev/null || true; fi",
+            "commandWindows": "$ErrorActionPreference = 'SilentlyContinue'; $py = Get-Command py -ErrorAction SilentlyContinue; if ($py) { & py -3 \"$env:PLUGIN_ROOT\\skills\\agent-policy\\scripts\\check_update.py\" --hook 2>$null } elseif (Get-Command python -ErrorAction SilentlyContinue) { & python \"$env:PLUGIN_ROOT\\skills\\agent-policy\\scripts\\check_update.py\" --hook 2>$null }; exit 0",
+            "timeout": 6
+          }
+        ]
+      }
+    ]
+  }
+}

@@ -8,30 +8,29 @@
 
 | 模板 | 适用位置 | 内容 |
 | --- | --- | --- |
-| [global-AGENTS.md](../templates/global-AGENTS.md) | 全局 Codex 规则 | 跨平台的编码、行尾、路径和 shell 约定。 |
-| [global-AGENTS.windows.md](../templates/windows/global-AGENTS.windows.md) | Windows 用户的全局补充 | `pwsh`、Windows PowerShell 5.1、UTF-8 管道与 `-LiteralPath`。 |
-| [repo-AGENTS.md](../templates/repo-AGENTS.md) | 单个仓库 | 构建、测试、运行时和项目例外的占位结构。 |
+| [global-AGENTS.md](../plugins/agent-policy/skills/agent-policy/assets/templates/global-AGENTS.md) | 全局 Codex 规则 | 跨平台的编码、行尾、路径和 shell 约定。 |
+| [global-AGENTS.windows.md](../plugins/agent-policy/skills/agent-policy/assets/templates/windows/global-AGENTS.windows.md) | Windows 用户的全局补充 | `pwsh`、Windows PowerShell 5.1、UTF-8 管道与 `-LiteralPath`。 |
+| [repo-AGENTS.md](../plugins/agent-policy/skills/agent-policy/assets/templates/repo-AGENTS.md) | 单个仓库 | 构建、测试、运行时和项目例外的占位结构。 |
 
 Windows 增强模板应与通用全局模板合并使用，不应把 Windows 命令强加给 macOS 或 Linux 项目。
 
 ## 全局规则
 
-默认全局目录是 `~/.codex`；设置 `CODEX_HOME` 时则使用该目录。先打开现有文件，再手动合并适用条目：
+调用 AgentPolicy 查看全局模板：
 
-```powershell
-$codexHome = if ($env:CODEX_HOME) { $env:CODEX_HOME } else { Join-Path $HOME '.codex' }
-New-Item -ItemType Directory -Force -Path $codexHome | Out-Null
-notepad.exe (Join-Path $codexHome 'AGENTS.md')
+```text
+@AgentPolicy 展示全局 AGENTS.md 模板
+@AgentPolicy 展示 Windows 增强规则
 ```
 
-不要覆盖已有的 `AGENTS.md`、`config.toml` 或整个 `.codex` 目录。全局规则只保留跨项目通用的约定。
+默认全局目录是 `~/.codex`；设置 `CODEX_HOME` 时则使用该目录。不要覆盖已有的 `AGENTS.md`、`config.toml` 或整个 `.codex` 目录。全局规则只保留跨项目通用的约定。
 
 ## 仓库规则
 
-若仓库还没有 `AGENTS.md`，可复制模板后填写占位项：
+调用 AgentPolicy 查看仓库模板：
 
-```powershell
-Copy-Item -LiteralPath .\templates\repo-AGENTS.md -Destination .\AGENTS.md
+```text
+@AgentPolicy 展示仓库级 AGENTS.md 模板
 ```
 
 若文件已经存在，请手动合并。仓库规则应写明真实的安装、构建、测试和部署命令，以及生成文件、第三方代码或安全要求等项目例外。

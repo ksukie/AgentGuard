@@ -2,28 +2,23 @@
 
 [← 返回主页](../README.md)
 
-`scripts/doctor.ps1` 是 Windows 优先的只读诊断入口。默认检查当前目录；可用 `-Path` 指定其他仓库。
+AgentPolicy 提供 Windows 优先的只读诊断。内部诊断器检查当前目录，也可以检查用户明确指定的其他仓库。
 
 ## 运行
 
-```powershell
-# 检查当前目录
-pwsh -NoProfile -File .\scripts\doctor.ps1
-
-# 检查指定仓库
-pwsh -NoProfile -File .\scripts\doctor.ps1 -Path C:\path\to\repo
-
-# 验证脚本自身的代理解析与脱敏逻辑
-pwsh -NoProfile -File .\scripts\doctor.ps1 -SelfTest
+```text
+@AgentPolicy 检查当前仓库
+@AgentPolicy 检查 C:\path\to\repo
 ```
 
-Windows PowerShell 5.1 也可运行：将 `pwsh` 替换为 `powershell`。
+AgentPolicy 优先使用 PowerShell 7；没有 PowerShell 7 时使用 Windows PowerShell 5.1。
 
 ## 检查内容
 
 | 范围 | 检查项 |
 | --- | --- |
 | PowerShell | PowerShell 5.1 / 7 可用性、控制台输入输出编码与 `$OutputEncoding`。 |
+| Python | Python 3 默认文本编码、UTF-8 Mode 与文件系统编码。 |
 | Git | `core.autocrlf`、已跟踪文本文件的行尾状态。 |
 | 仓库规则 | `.editorconfig`、`.gitattributes`、`AGENTS.md` 是否存在。 |
 | 脚本文件 | `.ps1`、`.sh`、`.bat`、`.cmd` 的 BOM、编码与常见换行风险。 |
@@ -42,13 +37,10 @@ Windows PowerShell 5.1 也可运行：将 `pwsh` 替换为 `powershell`。
 常见处理方式：
 
 - PowerShell 5.1 处理中文并调用原生命令时，显式使用 UTF-8，或使用 UTF-8 临时文件；
+- Python 读取 UTF-8 文本时显式使用 `encoding="utf-8"`；第三方工具依赖系统默认编码时，可为该次运行设置 `PYTHONUTF8=1` 或使用 `-X utf8`；
 - 已有 `.gitattributes`、`.editorconfig`、`AGENTS.md` 和构建工具规则优先于通用建议；
 - 不要为了消除单个警告而统一转换整个仓库的行尾或编码。
 
 ## 边界
 
-脚本不会创建、删除、转换或覆盖仓库文件，也不会修改 Git、PowerShell 或 Windows 设置。完整参数可通过以下命令查看：
-
-```powershell
-Get-Help .\scripts\doctor.ps1 -Full
-```
+诊断不会创建、删除、转换或覆盖仓库文件，也不会修改 Git、PowerShell 或 Windows 设置。

@@ -1,0 +1,7 @@
+interface:
+  display_name: "AgentPolicy"
+  short_description: "Diagnose Agent environments and guide AGENTS.md policy"
+  default_prompt: "Use $agent-policy to show available diagnostics and AGENTS.md policy guidance."
+
+policy:
+  allow_implicit_invocation: false

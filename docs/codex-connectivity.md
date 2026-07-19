@@ -2,19 +2,17 @@
 
 [← 返回主页](../README.md)
 
-当 Codex 或 ChatGPT Desktop 反复重连、流中断或回退 HTTP 时，使用 `-CodexConnectivity` 收集本机证据。该功能默认关闭，目前仅支持 Windows。
+当 Codex 或 ChatGPT Desktop 反复重连、流中断或回退 HTTP 时，让 AgentPolicy 收集本机证据。该功能只有在用户明确请求时运行，目前仅支持 Windows。
 
 ## 运行
 
-```powershell
-# 查看最近 24 小时的状态与日志信号
-pwsh -NoProfile -File .\scripts\doctor.ps1 -CodexConnectivity -SinceHours 24
-
-# 刚发生重连时，缩短窗口以减少历史噪声
-pwsh -NoProfile -File .\scripts\doctor.ps1 -CodexConnectivity -SinceHours 1
+```text
+@AgentPolicy 排查最近 24 小时的 Codex 重连
+@AgentPolicy 排查最近 1 小时的 Codex 重连
+@AgentPolicy 检查代理和 TUN 路由
 ```
 
-`-SinceHours` 支持 1 到 720 小时。
+诊断窗口支持 1 到 720 小时；没有指定时默认查看最近 24 小时。
 
 ## 检查内容
 

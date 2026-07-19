@@ -1,0 +1,36 @@
+{
+  "name": "agent-policy",
+  "version": "0.3.0",
+  "description": "Read-only Agent and Codex diagnostics with AGENTS.md policy guidance.",
+  "author": {
+    "name": "ksukie",
+    "url": "https://github.com/ksukie"
+  },
+  "homepage": "https://github.com/ksukie/AgentGuard",
+  "repository": "https://github.com/ksukie/AgentGuard",
+  "license": "MIT",
+  "keywords": [
+    "agent-policy",
+    "codex",
+    "diagnostics",
+    "agents-md",
+    "powershell"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "AgentPolicy",
+    "shortDescription": "Diagnose Agent environments and guide AGENTS.md policy.",
+    "longDescription": "Use one explicit AgentPolicy entry for read-only repository diagnostics, Windows Codex connectivity troubleshooting, and AGENTS.md policy-template guidance.",
+    "developerName": "ksukie",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read"
+    ],
+    "websiteURL": "https://github.com/ksukie/AgentGuard",
+    "defaultPrompt": [
+      "Use @AgentPolicy to show available diagnostics and policy guidance.",
+      "Use @AgentPolicy to diagnose the current repository.",
+      "Use @AgentPolicy to troubleshoot recent Codex reconnects."
+    ]
+  }
+}

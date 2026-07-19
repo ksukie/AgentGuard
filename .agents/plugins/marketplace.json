@@ -1,0 +1,20 @@
+{
+  "name": "agentguard",
+  "interface": {
+    "displayName": "AgentGuard"
+  },
+  "plugins": [
+    {
+      "name": "agent-policy",
+      "source": {
+        "source": "local",
+        "path": "./plugins/agent-policy"
+      },
+      "policy": {
+        "installation": "AVAILABLE",
+        "authentication": "ON_INSTALL"
+      },
+      "category": "Developer Tools"
+    }
+  ]
+}

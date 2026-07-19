@@ -16,14 +16,8 @@ Enables the optional Windows-only Codex connectivity diagnostic.
 .PARAMETER SinceHours
 Log lookback window for CodexConnectivity, from 1 to 720 hours. Defaults to 24.
 
-.PARAMETER SelfTest
-Runs parser and redaction checks without inspecting the machine or repository.
-
 .EXAMPLE
-pwsh -NoProfile -File .\scripts\doctor.ps1 -CodexConnectivity -SinceHours 24
-
-.EXAMPLE
-pwsh -NoProfile -File .\scripts\doctor.ps1 -SelfTest
+pwsh -NoProfile -File .\doctor.ps1 -CodexConnectivity -SinceHours 24
 #>
 [CmdletBinding()]
 param(
@@ -35,13 +29,10 @@ param(
 
     [Parameter()]
     [ValidateRange(1, 720)]
-    [int]$SinceHours = 24,
-
-    [Parameter()]
-    [switch]$SelfTest
+    [int]$SinceHours = 24
 )
 
-# AgentGuard v0.2.0: Windows-first, strictly read-only diagnostics.
+# AgentGuard v0.3.0: Windows-first, strictly read-only diagnostics.
 # This script intentionally does not create, modify, delete, convert, or upload files.
 
 Set-StrictMode -Version 2.0
@@ -77,7 +68,7 @@ function Add-Result {
 function Test-Utf8Name {
     param([string]$EncodingName)
 
-    return $EncodingName -match '^(utf-8|utf8)$'
+    return $EncodingName -match '^(utf-8|utf8|cp65001)$'
 }
 
 function Test-ExcludedPath {
@@ -795,28 +786,6 @@ function Test-CodexConnectivity {
     }
 }
 
-function Invoke-DoctorSelfTest {
-    $endpoints = @(Get-ProxyEndpointInfo -Value 'http=127.0.0.1:7897;https=[::1]:7898' -Source 'self-test')
-    if ($endpoints.Count -ne 2) {
-        throw 'Proxy endpoint parser did not return two endpoints.'
-    }
-
-    if (-not $endpoints[0].IsLoopback -or $endpoints[0].Port -ne 7897) {
-        throw 'Proxy endpoint parser did not recognize an IPv4 loopback proxy.'
-    }
-
-    if (-not $endpoints[1].IsLoopback -or $endpoints[1].Port -ne 7898) {
-        throw 'Proxy endpoint parser did not recognize an IPv6 loopback proxy.'
-    }
-
-    $remote = @(Get-ProxyEndpointInfo -Value 'https://user:secret@example.com:8443' -Source 'self-test')[0]
-    if ((Format-ProxyEndpoint -Endpoint $remote) -match 'example\.com|secret|user') {
-        throw 'Proxy endpoint formatter exposed a remote host or credential.'
-    }
-
-    Write-Output 'AgentGuard doctor v0.2.0 self-test passed.'
-}
-
 function Test-PowerShellEnvironment {
     Add-Result -Level 'INFO' -Message ("当前 PowerShell: {0} {1}" -f $PSVersionTable.PSEdition, $PSVersionTable.PSVersion)
 
@@ -852,6 +821,70 @@ function Test-PowerShellEnvironment {
     }
     catch {
         Add-Result -Level 'INFO' -Message '无法读取 Console 编码；这通常发生在无交互宿主中。'
+    }
+}
+
+function Add-PythonEncodingResult {
+    param(
+        [Parameter(Mandatory = $true)]
+        [string]$PreferredEncoding,
+
+        [Parameter(Mandatory = $true)]
+        [string]$FilesystemEncoding,
+
+        [Parameter(Mandatory = $true)]
+        [int]$Utf8Mode
+    )
+
+    if (Test-Utf8Name -EncodingName $PreferredEncoding) {
+        Add-Result -Level 'PASS' -Message ('Python 3 默认文本编码: {0}; UTF-8 Mode: {1}; 文件系统编码: {2}。' -f $PreferredEncoding, $Utf8Mode, $FilesystemEncoding)
+        return
+    }
+
+    Add-Result -Level 'WARN' -Message ('Python 3 默认文本编码为 {0}（UTF-8 Mode: {1}；文件系统编码: {2}）。未显式指定 encoding 的 open() 或 Path.read_text() 可能无法读取 UTF-8 中文文件；代码应使用 encoding="utf-8"，临时运行第三方工具可设置 PYTHONUTF8=1 或使用 -X utf8。' -f $PreferredEncoding, $Utf8Mode, $FilesystemEncoding)
+}
+
+function Test-PythonEnvironment {
+    $pythonCommand = Get-Command -Name 'py' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+    $pythonArguments = @('-3')
+
+    if ($null -eq $pythonCommand) {
+        $pythonCommand = Get-Command -Name 'python3' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        $pythonArguments = @()
+    }
+
+    if ($null -eq $pythonCommand) {
+        $pythonCommand = Get-Command -Name 'python' -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
+        $pythonArguments = @()
+    }
+
+    if ($null -eq $pythonCommand) {
+        Add-Result -Level 'INFO' -Message '未检测到 Python 3；跳过 Python 默认文本编码检查。'
+        return
+    }
+
+    $probe = "import json,locale,sys; print(json.dumps({'major':sys.version_info[0],'preferred':locale.getpreferredencoding(False),'filesystem':sys.getfilesystemencoding(),'utf8_mode':sys.flags.utf8_mode}))"
+    $pythonArguments += @('-S', '-c', $probe)
+
+    try {
+        $executable = $pythonCommand.Source
+        $probeOutput = @(& $executable @pythonArguments 2>$null)
+        $exitCode = $LASTEXITCODE
+        if ($exitCode -ne 0 -or $probeOutput.Count -eq 0) {
+            Add-Result -Level 'INFO' -Message '无法读取 Python 3 默认文本编码；跳过该检查。'
+            return
+        }
+
+        $info = ([string]$probeOutput[-1]) | ConvertFrom-Json
+        $propertyNames = @($info.PSObject.Properties.Name)
+        if ($propertyNames -notcontains 'major' -or $propertyNames -notcontains 'preferred' -or $propertyNames -notcontains 'filesystem' -or $propertyNames -notcontains 'utf8_mode' -or [int]$info.major -ne 3) {
+            throw 'Unexpected Python encoding probe output.'
+        }
+
+        Add-PythonEncodingResult -PreferredEncoding ([string]$info.preferred) -FilesystemEncoding ([string]$info.filesystem) -Utf8Mode ([int]$info.utf8_mode)
+    }
+    catch {
+        Add-Result -Level 'INFO' -Message '无法解析 Python 3 默认文本编码；跳过该检查。'
     }
 }
 
@@ -1007,7 +1040,7 @@ function Show-Results {
     }
 
     Write-Output ''
-    Write-Output 'AgentGuard doctor v0.2.0 (strictly read-only)'
+    Write-Output 'AgentGuard doctor v0.3.0 (strictly read-only)'
     Write-Output '========================================'
 
     foreach ($result in $script:Results) {
@@ -1030,8 +1063,7 @@ function Show-Results {
     Write-Output 'No files or settings were changed.'
 }
 
-if ($SelfTest) {
-    Invoke-DoctorSelfTest
+if ($MyInvocation.InvocationName -eq '.') {
     return
 }
 
@@ -1053,6 +1085,7 @@ if (-not (Test-Path -LiteralPath $resolvedPath -PathType Container)) {
 
 Add-Result -Level 'INFO' -Message ("检查目标: {0}" -f $resolvedPath)
 Test-PowerShellEnvironment
+Test-PythonEnvironment
 Test-RepositoryFiles -TargetPath $resolvedPath
 if ($CodexConnectivity) {
     Test-CodexConnectivity -Hours $SinceHours
