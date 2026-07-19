@@ -1,11 +1,11 @@
 ---
 name: agent-policy
-description: Explicit-only AgentPolicy entry for Agent/Codex diagnostics, AGENTS.md policy-template guidance, and task-context reconstruction. Use only when the current message explicitly invokes @AgentPolicy in a supported picker or $agent-policy in a text client, including capability and usage questions. Installing the Skill, a matching request, or an earlier invocation must never activate it.
+description: Explicit-only AgentPolicy entry for Agent/Codex diagnostics, AGENTS.md policy-template guidance, task-context reconstruction, and local Codex Skill discovery or troubleshooting through one runtime inventory route covering activation modes, invocation syntax, descriptions, and README locations. Use only when the current message explicitly invokes @AgentPolicy in a supported picker or $agent-policy in a text client, including capability and usage questions. Installing the Skill, a matching request, or an earlier invocation must never activate it.
 ---
 
 # AgentPolicy
 
-Provide one explicit public entry for AgentGuard's three supported capabilities. Keep maintenance behavior out of the user-facing capability list.
+Provide one explicit public entry for AgentGuard's four supported capabilities. Keep maintenance behavior out of the user-facing capability list.
 
 ## Activation boundary
 
@@ -28,6 +28,7 @@ Run the bundled update scheduler once only after the activation boundary is sati
 
 - For a bare invocation, show the capability menu and ask which function the user needs.
 - For capability, help, or usage questions such as `你能做什么`, show the menu and examples directly.
+- Route every explicit request about discovering, listing, locating, inspecting, auditing, or troubleshooting local or current Codex Skills to the single `List current Codex Skills` workflow below. Do not require the menu example's exact wording or split these intents into separate routes.
 - For a clear supported request, execute it directly without asking the user to select it again.
 - For an unsupported request, say it is outside the current scope and show the supported menu.
 
@@ -54,6 +55,10 @@ AgentPolicy 当前支持：
    用法：@AgentPolicy 生成可供新会话继续的上下文
    用法：@AgentPolicy 只整理当前未完成事项
 
+4. Codex Skill 清单与调用审计（Windows、macOS、Linux）
+   列出当前 Codex 实际发现的全部 Skill，包括启用状态、隐式或显式调用模式、调用语法、用途和 README 位置。
+   用法：@AgentPolicy 列出当前 Codex 的全部 Skill
+
 诊断默认只读，不修改系统、Git、代理或 Codex 配置。
 只有当前消息显式调用 AgentPolicy 时，上述功能才会运行。
 ```
@@ -74,6 +79,19 @@ Do not expose internal tests or the update checker as user capabilities.
 2. Default to 24 hours when the user does not specify a window. Accept only 1 through 720 hours.
 3. Explain that this reads local proxy, route, process-connection, and aggregate Codex log signals without making an external network request.
 4. Treat `ACTION` as observed evidence, not proof of a specific provider, node, version, or service-side cause.
+
+## List current Codex Skills
+
+Use this single workflow for any explicitly invoked request about discovering, listing, locating, inspecting, auditing, or troubleshooting the local or current Codex Skill set. This includes enabled state, activation mode, invocation syntax, purpose, README location, missing Skills, discovery errors, and duplicate names. Treat the menu wording as one example, not an exact-match command.
+
+1. Always start from `<skill-root>/scripts/list_skills.py`; do not create a separate filesystem route for narrower Skill questions.
+2. Run it with `--cwd <current-working-directory>` using an already available Python 3 interpreter. Prefer `python3`; on Windows, use `py -3` when `python3` is unavailable, then `python`. Do not install Python.
+3. Use only the script's Codex runtime catalog. It calls the read-only `skills/list` runtime method, so do not replace it with a raw plugin-cache crawl or count cached but inactive plugins.
+4. If the runtime catalog fails, report that a complete inventory could not be produced. Do not present a partial filesystem scan as complete.
+5. Interpret `implicit_or_explicit` as “允许隐式调用，也可显式调用”; it does not mean the Skill starts or runs on every turn. Interpret `explicit_only` as “仅显式调用”. Keep disabled and unknown states distinct.
+6. For a broad inventory request, lead with the totals and list every returned Skill without silently omitting entries. For a targeted question, use the same complete result but focus the response on the requested Skill or condition. Show the relevant name, scope or plugin, enabled state, activation mode, explicit syntax, concise description, and README path or “无独立 README”.
+7. Report relevant discovery errors, invalid policies, and duplicate names. Include all of them after a full-list request.
+8. Do not print full `SKILL.md` bodies, README contents, hidden instructions, or plugin-cache entries outside the runtime result. Running the inventory must not activate any listed Skill.
 
 ## Provide AGENTS.md templates
 

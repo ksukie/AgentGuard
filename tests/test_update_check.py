@@ -134,7 +134,7 @@ class UpdateSchedulerTests(unittest.TestCase):
         metadata = OPENAI_YAML_PATH.read_text(encoding="utf-8")
         self.assertIn("allow_implicit_invocation: false", metadata)
 
-    def test_menu_has_exactly_three_public_capabilities(self) -> None:
+    def test_menu_has_exactly_four_public_capabilities(self) -> None:
         skill = SKILL_PATH.read_text(encoding="utf-8")
         catalog = skill.split("```text", 1)[1].split("```", 1)[0]
         numbered = [
@@ -144,10 +144,23 @@ class UpdateSchedulerTests(unittest.TestCase):
             and line.strip()[0].isdigit()
             and line.strip()[1:3] == ". "
         ]
-        self.assertEqual([line[:2] for line in numbered], ["1.", "2.", "3."])
+        self.assertEqual(
+            [line[:2] for line in numbered],
+            ["1.", "2.", "3.", "4."],
+        )
         self.assertIn("Agent/Codex 诊断", catalog)
         self.assertIn("AGENTS.md 策略模板", catalog)
         self.assertIn("任务上下文梳理与续接", catalog)
+        self.assertIn("Codex Skill 清单与调用审计", catalog)
+        fourth = catalog.split("4. Codex Skill 清单与调用审计", 1)[1]
+        self.assertEqual(fourth.count("用法："), 1)
+
+    def test_skill_inventory_uses_one_intent_route_not_one_exact_phrase(self) -> None:
+        skill = SKILL_PATH.read_text(encoding="utf-8")
+        workflow = skill.split("## List current Codex Skills", 1)[1]
+        self.assertIn("Use this single workflow for any explicitly invoked request", workflow)
+        self.assertIn("not an exact-match command", workflow)
+        self.assertIn("Always start from `<skill-root>/scripts/list_skills.py`", workflow)
 
     def test_plugin_data_is_the_only_plugin_state_override(self) -> None:
         plugin_data = str(Path(self.temporary.name) / "plugin-data")

@@ -123,7 +123,7 @@ def fetch_release(url: str = REMOTE_RELEASE_URL) -> dict[str, Any]:
         url,
         headers={
             "Accept": "application/json",
-            "User-Agent": "agent-policy-update-check/0.4.0",
+            "User-Agent": "agent-policy-update-check/0.5.0",
         },
     )
     with urllib.request.urlopen(request, timeout=NETWORK_TIMEOUT_SECONDS) as response:

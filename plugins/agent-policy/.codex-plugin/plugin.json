@@ -1,7 +1,7 @@
 {
   "name": "agent-policy",
-  "version": "0.4.0",
-  "description": "Explicit Agent/Codex diagnostics, AGENTS.md policy guidance, and task-context reconstruction.",
+  "version": "0.5.0",
+  "description": "Explicit Agent/Codex diagnostics, AGENTS.md policy guidance, task-context reconstruction, and Codex Skill inventory.",
   "author": {
     "name": "ksukie",
     "url": "https://github.com/ksukie"
@@ -15,13 +15,14 @@
     "diagnostics",
     "agents-md",
     "task-context",
+    "skill-inventory",
     "powershell"
   ],
   "skills": "./skills/",
   "interface": {
     "displayName": "AgentPolicy",
-    "shortDescription": "Diagnose Agents, guide policies, and structure task context.",
-    "longDescription": "Use one explicit AgentPolicy entry for Agent/Codex diagnostics, AGENTS.md policy templates, and coherent task-context reconstruction for continuation.",
+    "shortDescription": "Diagnose Agents, audit Skills, and structure task context.",
+    "longDescription": "Use one explicit AgentPolicy entry for Agent/Codex diagnostics, AGENTS.md policy templates, task-context reconstruction, and a complete current Codex Skill inventory.",
     "developerName": "ksukie",
     "category": "Developer Tools",
     "capabilities": [
@@ -30,8 +31,8 @@
     "websiteURL": "https://github.com/ksukie/AgentGuard",
     "defaultPrompt": [
       "Use @AgentPolicy to diagnose the current Agent or Codex environment.",
-      "Use @AgentPolicy to show an AGENTS.md policy template.",
-      "Use @AgentPolicy to structure the current task context for continuation."
+      "Use @AgentPolicy to structure the current task context for continuation.",
+      "Use @AgentPolicy to list every Skill in the current Codex runtime."
     ]
   }
 }

@@ -1,7 +1,7 @@
 interface:
   display_name: "AgentPolicy"
-  short_description: "Diagnose Agents, guide policies, and structure context"
-  default_prompt: "Use $agent-policy to show diagnostics, policy guidance, and task-context structuring."
+  short_description: "Diagnose Agents, audit Skills, and structure context"
+  default_prompt: "Use $agent-policy to show diagnostics, policy guidance, context structuring, and the current Codex Skill inventory."
 
 policy:
   allow_implicit_invocation: false

@@ -1,8 +1,8 @@
 # AgentGuard / AgentPolicy
 
-> 通过唯一入口 `@AgentPolicy` 使用 Agent/Codex 诊断、`AGENTS.md` 策略模板与任务上下文梳理。
+> 通过唯一入口 `@AgentPolicy` 使用 Agent/Codex 诊断、`AGENTS.md` 策略模板、任务上下文梳理与 Codex Skill 清单。
 
-AgentGuard 帮助发现 AI 编码代理环境中的编码、换行、路径与 Codex 连接风险，也能把长对话重建为可继续执行的当前任务上下文。AgentPolicy 将这些功能封装为一个只接受显式调用的 Skill；安装本身不会触发任何功能。
+AgentGuard 帮助发现 AI 编码代理环境中的编码、换行、路径与 Codex 连接风险，也能重建任务上下文并列出当前 Codex 实际发现的全部 Skill。AgentPolicy 将这些功能封装为一个只接受显式调用的 Skill；安装本身不会触发任何功能。
 
 ## 功能
 
@@ -11,6 +11,7 @@ AgentGuard 帮助发现 AI 编码代理环境中的编码、换行、路径与 C
 | Agent/Codex 诊断     | PowerShell/Python 编码、Git 行尾、脚本兼容性、仓库规则、代理、TUN 与 Codex 重连信号 | Windows               | [仓库诊断](docs/doctor.md) · [连接诊断](docs/codex-connectivity.md)      |
 | AGENTS.md 策略模板   | 全局、Windows 增强与仓库级执行规则                                                    | Windows、macOS、Linux | [查看文档](docs/agents-templates.md)                                     |
 | 任务上下文梳理与续接 | 当前任务主线、代码或执行流程、关键做法、有效状态、未决分支与下一步                   | Windows、macOS、Linux | [查看文档](docs/context-structuring.md)                                  |
+| Codex Skill 清单     | 全部 Skill 的启用状态、调用模式、语法、用途与 README 位置                            | Windows、macOS、Linux | [查看文档](docs/skill-inventory.md)                                      |
 
 ## 开始使用
 
@@ -31,13 +32,16 @@ codex plugin add agent-policy@agentguard
 @AgentPolicy 展示仓库级 AGENTS.md 模板
 @AgentPolicy 总结当前任务上下文
 @AgentPolicy 生成可供新会话继续的上下文
+@AgentPolicy 列出当前 Codex 的全部 Skill
 ```
+
+第四项只保留上面这一条公开示例，但它不是固定口令：凡是显式调用 AgentPolicy 后提出的本地 Skill 发现、查找、检查、审计或排查请求，都会进入同一条运行时清单路线。
 
 空调用会展示固定能力菜单；任务明确时会直接执行，不会要求重复选择。
 
 ## 显式调用边界
 
-只有当前消息显式调用 `@AgentPolicy`（或文本客户端中的 `$agent-policy`）时，Skill 才会运行。它不会因为已经安装、请求内容碰巧匹配、上一轮调用过或会话很长而隐式启动，也不会自动诊断或总结上下文。
+只有当前消息显式调用 `@AgentPolicy`（或文本客户端中的 `$agent-policy`）时，Skill 才会运行。它不会因为已经安装、请求内容碰巧匹配、上一轮调用过或会话很长而隐式启动，也不会自动诊断、总结上下文或扫描 Skill。
 
 更新检查同样只在显式调用后运行。插件没有全局消息提交 Hook，也没有安装后常驻的后台任务。
 
@@ -59,7 +63,7 @@ codex plugin add agent-policy@agentguard
 
 ## 安全承诺
 
-默认不上传源代码，不读取密钥或 `auth.json`，不修改注册表、系统代理、TUN、路由、Git 或 Codex 配置。更新检查只读取固定的 GitHub `release.json`，并仅在插件数据或用户状态目录写入自己的节流状态。
+默认不上传源代码，不读取密钥或 `auth.json`，不修改注册表、系统代理、TUN、路由、Git 或 Codex 配置。Skill 清单只读取 Codex 运行时返回的公开元数据及本地调用策略；更新检查只读取固定的 GitHub `release.json`，并仅在插件数据或用户状态目录写入自己的节流状态。
 
 ## 许可证
 
