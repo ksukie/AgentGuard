@@ -1,0 +1,38 @@
+{
+  "name": "agent-tools",
+  "version": "0.6.0",
+  "description": "Explicit Agent/Codex diagnostics, AGENTS.md policy guidance, task-context reconstruction, and Codex Skill inventory.",
+  "author": {
+    "name": "ksukie",
+    "url": "https://github.com/ksukie"
+  },
+  "homepage": "https://github.com/ksukie/AgentTools",
+  "repository": "https://github.com/ksukie/AgentTools",
+  "license": "MIT",
+  "keywords": [
+    "agent-tools",
+    "codex",
+    "diagnostics",
+    "agents-md",
+    "task-context",
+    "skill-inventory",
+    "powershell"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "AgentTools",
+    "shortDescription": "Diagnose Agents, audit Skills, and structure task context.",
+    "longDescription": "Use one explicit AgentTools entry for Agent/Codex diagnostics, AGENTS.md policy templates, task-context reconstruction, and a complete current Codex Skill inventory.",
+    "developerName": "ksukie",
+    "category": "Developer Tools",
+    "capabilities": [
+      "Read"
+    ],
+    "websiteURL": "https://github.com/ksukie/AgentTools",
+    "defaultPrompt": [
+      "Use @AgentTools to diagnose the current Agent or Codex environment.",
+      "Use @AgentTools to structure the current task context for continuation.",
+      "Use @AgentTools to list every Skill in the current Codex runtime."
+    ]
+  }
+}

@@ -15,7 +15,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 
-CLIENT_NAME = "agent_policy_skill_inventory"
+CLIENT_NAME = "agent_tools_skill_inventory"
 CLIENT_VERSION = "0.5.0"
 REQUEST_TIMEOUT_SECONDS = 15
 MAX_METADATA_BYTES = 1024 * 1024

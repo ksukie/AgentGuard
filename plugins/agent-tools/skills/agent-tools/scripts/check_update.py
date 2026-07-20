@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Silently rate-limit explicitly invoked AgentPolicy update checks."""
+"""Silently rate-limit explicitly invoked AgentTools update checks."""
 
 from __future__ import annotations
 
@@ -16,10 +16,10 @@ from urllib.parse import urlparse
 
 
 REMOTE_RELEASE_URL = (
-    "https://raw.githubusercontent.com/ksukie/AgentGuard/main/"
-    "plugins/agent-policy/skills/agent-policy/release.json"
+    "https://raw.githubusercontent.com/ksukie/AgentTools/main/"
+    "plugins/agent-tools/skills/agent-tools/release.json"
 )
-UPDATE_GUIDE_URL = "https://github.com/ksukie/AgentGuard#update"
+UPDATE_GUIDE_URL = "https://github.com/ksukie/AgentTools#update"
 STATE_FILE_NAME = "update-state.json"
 STATE_SCHEMA_VERSION = 1
 
@@ -123,7 +123,7 @@ def fetch_release(url: str = REMOTE_RELEASE_URL) -> dict[str, Any]:
         url,
         headers={
             "Accept": "application/json",
-            "User-Agent": "agent-policy-update-check/0.5.0",
+            "User-Agent": "agent-tools-update-check/0.6.0",
         },
     )
     with urllib.request.urlopen(request, timeout=NETWORK_TIMEOUT_SECONDS) as response:
@@ -336,7 +336,10 @@ def run_scheduler(
 
 
 def update_checks_disabled() -> bool:
-    value = os.environ.get("AGENT_POLICY_UPDATE_CHECK", "1").strip().lower()
+    value = os.environ.get("AGENT_TOOLS_UPDATE_CHECK")
+    if value is None:
+        value = os.environ.get("AGENT_POLICY_UPDATE_CHECK", "1")
+    value = value.strip().lower()
     return value in {"0", "false", "no", "off"}
 
 
@@ -345,10 +348,10 @@ def resolve_state_path() -> Path:
     if plugin_data:
         return Path(plugin_data).expanduser() / STATE_FILE_NAME
     if os.name == "nt" and os.environ.get("LOCALAPPDATA"):
-        return Path(os.environ["LOCALAPPDATA"]) / "AgentPolicy" / STATE_FILE_NAME
+        return Path(os.environ["LOCALAPPDATA"]) / "AgentTools" / STATE_FILE_NAME
     state_home = os.environ.get("XDG_STATE_HOME")
     root = Path(state_home).expanduser() if state_home else Path.home() / ".local" / "state"
-    return root / "agent-policy" / STATE_FILE_NAME
+    return root / "agent-tools" / STATE_FILE_NAME
 
 
 def main() -> int:
@@ -362,12 +365,15 @@ def main() -> int:
             state_path=resolve_state_path(),
         )
     except Exception as exc:
-        if os.environ.get("AGENT_POLICY_UPDATE_DEBUG") == "1":
-            print(f"AgentPolicy update check failed: {exc}", file=sys.stderr)
+        debug = os.environ.get("AGENT_TOOLS_UPDATE_DEBUG")
+        if debug is None:
+            debug = os.environ.get("AGENT_POLICY_UPDATE_DEBUG")
+        if debug == "1":
+            print(f"AgentTools update check failed: {exc}", file=sys.stderr)
         result = {"status": "check_failed"}
 
     if result.get("status") == "update_available":
-        print(json.dumps({"agent_policy_update": result["notice"]}, ensure_ascii=False))
+        print(json.dumps({"agent_tools_update": result["notice"]}, ensure_ascii=False))
     return 0
 
 

@@ -1,9 +1,0 @@
-{
-  "version": "0.5.0",
-  "released_at": "2026-07-19T13:31:04Z",
-  "release_sequence": 5,
-  "summary": {
-    "zh-CN": "新增第四项 Codex Skill 清单与调用审计，一次列出当前全部 Skill、调用模式、语法、用途和 README。",
-    "en": "Adds a fourth capability that lists every current Codex Skill with activation mode, syntax, purpose, and README location."
-  }
-}

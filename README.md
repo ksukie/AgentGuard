@@ -1,8 +1,8 @@
-# AgentGuard / AgentPolicy
+# AgentTools
 
-> 通过唯一入口 `@AgentPolicy` 使用 Agent/Codex 诊断、`AGENTS.md` 策略模板、任务上下文梳理与 Codex Skill 清单。
+> 通过唯一入口 `@AgentTools` 使用 Agent/Codex 诊断、`AGENTS.md` 策略模板、任务上下文梳理与 Codex Skill 清单。
 
-AgentGuard 帮助发现 AI 编码代理环境中的编码、换行、路径与 Codex 连接风险，也能重建任务上下文并列出当前 Codex 实际发现的全部 Skill。AgentPolicy 将这些功能封装为一个只接受显式调用的 Skill；安装本身不会触发任何功能。
+AgentTools 帮助发现 AI 编码代理环境中的编码、换行、路径与 Codex 连接风险，也能重建任务上下文并列出当前 Codex 实际发现的全部 Skill。这些功能封装在一个只接受显式调用的 Skill 中；安装本身不会触发任何功能。
 
 ## 功能
 
@@ -18,30 +18,41 @@ AgentGuard 帮助发现 AI 编码代理环境中的编码、换行、路径与 C
 安装仓库中的插件：
 
 ```text
-codex plugin marketplace add ksukie/AgentGuard
-codex plugin add agent-policy@agentguard
+codex plugin marketplace add ksukie/AgentTools
+codex plugin add agent-tools@agenttools
 ```
 
-安装后开始一个新会话。在支持 Skill 选择器的界面使用 `@AgentPolicy`；文本客户端使用 `$agent-policy`。
+### 从旧名称迁移
+
+旧版的 Marketplace 和插件身份不会自动变成新名称。已安装旧版的用户应先移除旧身份，再重新添加：
 
 ```text
-@AgentPolicy
-@AgentPolicy 你能做什么
-@AgentPolicy 检查当前仓库
-@AgentPolicy 排查最近 1 小时的 Codex 重连
-@AgentPolicy 展示仓库级 AGENTS.md 模板
-@AgentPolicy 总结当前任务上下文
-@AgentPolicy 生成可供新会话继续的上下文
-@AgentPolicy 列出当前 Codex 的全部 Skill
+codex plugin remove agent-policy@agentguard
+codex plugin marketplace remove agentguard
+codex plugin marketplace add ksukie/AgentTools
+codex plugin add agent-tools@agenttools
 ```
 
-第四项只保留上面这一条公开示例，但它不是固定口令：凡是显式调用 AgentPolicy 后提出的本地 Skill 发现、查找、检查、审计或排查请求，都会进入同一条运行时清单路线。
+安装后开始一个新会话。在支持 Skill 选择器的界面使用 `@AgentTools`；文本客户端使用 `$agent-tools`。
+
+```text
+@AgentTools
+@AgentTools 你能做什么
+@AgentTools 检查当前仓库
+@AgentTools 排查最近 1 小时的 Codex 重连
+@AgentTools 展示仓库级 AGENTS.md 模板
+@AgentTools 总结当前任务上下文
+@AgentTools 生成可供新会话继续的上下文
+@AgentTools 列出当前 Codex 的全部 Skill
+```
+
+Skill 清单功能只保留上面这一条公开示例，但它不是固定口令：凡是显式调用 AgentTools 后提出的本地 Skill 发现、查找、检查、审计或排查请求，都会进入同一条运行时清单路线。
 
 空调用会展示固定能力菜单；任务明确时会直接执行，不会要求重复选择。
 
 ## 显式调用边界
 
-只有当前消息显式调用 `@AgentPolicy`（或文本客户端中的 `$agent-policy`）时，Skill 才会运行。它不会因为已经安装、请求内容碰巧匹配、上一轮调用过或会话很长而隐式启动，也不会自动诊断、总结上下文或扫描 Skill。
+只有当前消息显式调用 `@AgentTools`（或文本客户端中的 `$agent-tools`）时，Skill 才会运行。它不会因为已经安装、请求内容碰巧匹配、上一轮调用过或会话很长而隐式启动，也不会自动诊断、总结上下文或扫描 Skill。
 
 更新检查同样只在显式调用后运行。插件没有全局消息提交 Hook，也没有安装后常驻的后台任务。
 
@@ -49,17 +60,17 @@ codex plugin add agent-policy@agentguard
 
 ## 更新
 
-AgentPolicy 会在显式调用后进行低频版本检查：正常情况下每 72 小时最多联网一次，失败后 12 小时重试，发现新版本后每 36 小时最多提醒一次。检查失败保持静默，更新提醒只在主要任务完成后显示。
+AgentTools 会在显式调用后进行低频版本检查：正常情况下每 72 小时最多联网一次，失败后 12 小时重试，发现新版本后每 36 小时最多提醒一次。检查失败保持静默，更新提醒只在主要任务完成后显示。
 
 它不会自动拉取、安装或覆盖文件。更新插件：
 
 ```text
-codex plugin marketplace upgrade agentguard
-codex plugin remove agent-policy@agentguard
-codex plugin add agent-policy@agentguard
+codex plugin marketplace upgrade agenttools
+codex plugin remove agent-tools@agenttools
+codex plugin add agent-tools@agenttools
 ```
 
-更新后开始一个新会话。设置 `AGENT_POLICY_UPDATE_CHECK=0` 可关闭更新检查。
+更新后开始一个新会话。设置 `AGENT_TOOLS_UPDATE_CHECK=0` 可关闭更新检查。
 
 ## 安全承诺
 

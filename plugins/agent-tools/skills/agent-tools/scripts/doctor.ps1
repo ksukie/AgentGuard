@@ -1,6 +1,6 @@
 ﻿<#
 .SYNOPSIS
-Runs AgentGuard's strictly read-only Windows environment diagnostic.
+Runs AgentTools' strictly read-only Windows environment diagnostic.
 
 .DESCRIPTION
 Checks repository encoding and line-ending risks by default. The optional
@@ -32,7 +32,7 @@ param(
     [int]$SinceHours = 24
 )
 
-# AgentGuard v0.3.0: Windows-first, strictly read-only diagnostics.
+# AgentTools v0.3.0: Windows-first, strictly read-only diagnostics.
 # This script intentionally does not create, modify, delete, convert, or upload files.
 
 Set-StrictMode -Version 2.0
@@ -528,8 +528,8 @@ function Test-VirtualDefaultRoutes {
     }
 }
 
-function Initialize-AgentGuardSqliteReader {
-    if ($null -ne ('AgentGuard.SqliteReader' -as [type])) {
+function Initialize-AgentToolsSqliteReader {
+    if ($null -ne ('AgentTools.SqliteReader' -as [type])) {
         return $true
     }
 
@@ -538,7 +538,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Text;
 
-namespace AgentGuard
+namespace AgentTools
 {
     public static class SqliteReader
     {
@@ -670,7 +670,7 @@ function Get-CodexLogSummary {
         return $null
     }
 
-    if (-not (Initialize-AgentGuardSqliteReader)) {
+    if (-not (Initialize-AgentToolsSqliteReader)) {
         Add-Result -Level 'INFO' -Message '无法初始化只读 SQLite 查询；跳过 Codex 日志聚合。'
         return $null
     }
@@ -704,7 +704,7 @@ WHERE ts >= $since
 
     foreach ($database in $databases) {
         try {
-            $row = [AgentGuard.SqliteReader]::QueryFirstRow($database.FullName, $sql)
+            $row = [AgentTools.SqliteReader]::QueryFirstRow($database.FullName, $sql)
             if ([string]::IsNullOrWhiteSpace($row)) {
                 continue
             }
@@ -1040,7 +1040,7 @@ function Show-Results {
     }
 
     Write-Output ''
-    Write-Output 'AgentGuard doctor v0.3.0 (strictly read-only)'
+    Write-Output 'AgentTools doctor v0.3.0 (strictly read-only)'
     Write-Output '========================================'
 
     foreach ($result in $script:Results) {

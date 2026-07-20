@@ -1,0 +1,7 @@
+interface:
+  display_name: "AgentTools"
+  short_description: "Diagnose Agents, audit Skills, and structure context"
+  default_prompt: "Use $agent-tools to show diagnostics, policy guidance, context structuring, and the current Codex Skill inventory."
+
+policy:
+  allow_implicit_invocation: false

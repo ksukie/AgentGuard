@@ -4,12 +4,12 @@
 
 ## 调用方式
 
-只有当前消息显式调用 AgentPolicy 时才会运行：
+只有当前消息显式调用 AgentTools 时才会运行：
 
 ```text
-@AgentPolicy 总结当前任务上下文
-@AgentPolicy 生成可供新会话继续的上下文
-@AgentPolicy 只整理当前未完成事项
+@AgentTools 总结当前任务上下文
+@AgentTools 生成可供新会话继续的上下文
+@AgentTools 只整理当前未完成事项
 ```
 
 安装 Skill 不会自动读取或总结会话，之前某一轮的调用也不会延续到下一轮。

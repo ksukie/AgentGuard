@@ -2,16 +2,16 @@
 
 [← 返回主页](../README.md)
 
-AgentPolicy 提供 Windows 优先的只读诊断。内部诊断器检查当前目录，也可以检查用户明确指定的其他仓库。
+AgentTools 提供 Windows 优先的只读诊断。内部诊断器检查当前目录，也可以检查用户明确指定的其他仓库。
 
 ## 运行
 
 ```text
-@AgentPolicy 检查当前仓库
-@AgentPolicy 检查 C:\path\to\repo
+@AgentTools 检查当前仓库
+@AgentTools 检查 C:\path\to\repo
 ```
 
-AgentPolicy 优先使用 PowerShell 7；没有 PowerShell 7 时使用 Windows PowerShell 5.1。
+AgentTools 优先使用 PowerShell 7；没有 PowerShell 7 时使用 Windows PowerShell 5.1。
 
 ## 检查内容
 

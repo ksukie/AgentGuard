@@ -1,4 +1,4 @@
-# AgentGuard global guidance
+# AgentTools global guidance
 
 Use these as safe personal defaults across repositories. Repository-level `AGENTS.md`, `.editorconfig`, `.gitattributes`, build tooling, and explicit user instructions take precedence when they are more specific.
 

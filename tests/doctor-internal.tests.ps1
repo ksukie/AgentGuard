@@ -3,7 +3,7 @@ param()
 
 Set-StrictMode -Version 2.0
 
-$doctorPath = Join-Path $PSScriptRoot '..\plugins\agent-policy\skills\agent-policy\scripts\doctor.ps1'
+$doctorPath = Join-Path $PSScriptRoot '..\plugins\agent-tools\skills\agent-tools\scripts\doctor.ps1'
 . $doctorPath
 
 $endpoints = @(Get-ProxyEndpointInfo -Value 'http=127.0.0.1:7897;https=[::1]:7898' -Source 'internal-test')
@@ -42,4 +42,4 @@ if (@($script:Results | Where-Object { $_.Level -eq 'PASS' }).Count -ne 1) {
     throw 'Windows UTF-8 code page was not accepted.'
 }
 
-Write-Output 'AgentGuard doctor internal tests passed.'
+Write-Output 'AgentTools doctor internal tests passed.'

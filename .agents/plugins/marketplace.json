@@ -1,14 +1,14 @@
 {
-  "name": "agentguard",
+  "name": "agenttools",
   "interface": {
-    "displayName": "AgentGuard"
+    "displayName": "AgentTools"
   },
   "plugins": [
     {
-      "name": "agent-policy",
+      "name": "agent-tools",
       "source": {
         "source": "local",
-        "path": "./plugins/agent-policy"
+        "path": "./plugins/agent-tools"
       },
       "policy": {
         "installation": "AVAILABLE",

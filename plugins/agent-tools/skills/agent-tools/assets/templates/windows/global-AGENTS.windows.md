@@ -1,4 +1,4 @@
-# AgentGuard Windows enhancement
+# AgentTools Windows enhancement
 
 Merge these Windows-specific defaults with the bundled general global template; do not use this file to replace project rules or to force Windows commands on non-Windows projects.
 

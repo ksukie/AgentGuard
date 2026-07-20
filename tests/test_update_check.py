@@ -13,9 +13,9 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = (
     ROOT
     / "plugins"
-    / "agent-policy"
+    / "agent-tools"
     / "skills"
-    / "agent-policy"
+    / "agent-tools"
     / "scripts"
     / "check_update.py"
 )
@@ -23,14 +23,17 @@ SKILL_PATH = SCRIPT_PATH.parent.parent / "SKILL.md"
 OPENAI_YAML_PATH = (
     ROOT
     / "plugins"
-    / "agent-policy"
+    / "agent-tools"
     / "skills"
-    / "agent-policy"
+    / "agent-tools"
     / "agents"
     / "openai.yaml"
 )
-HOOK_PATH = ROOT / "plugins" / "agent-policy" / "hooks" / "hooks.json"
-SPEC = importlib.util.spec_from_file_location("agent_policy_update_check", SCRIPT_PATH)
+HOOK_PATH = ROOT / "plugins" / "agent-tools" / "hooks" / "hooks.json"
+PLUGIN_MANIFEST_PATH = ROOT / "plugins" / "agent-tools" / ".codex-plugin" / "plugin.json"
+MARKETPLACE_PATH = ROOT / ".agents" / "plugins" / "marketplace.json"
+RELEASE_PATH = SCRIPT_PATH.parent.parent / "release.json"
+SPEC = importlib.util.spec_from_file_location("agent_tools_update_check", SCRIPT_PATH)
 if SPEC is None or SPEC.loader is None:
     raise RuntimeError("Unable to load update checker")
 UPDATE = importlib.util.module_from_spec(SPEC)
@@ -134,6 +137,37 @@ class UpdateSchedulerTests(unittest.TestCase):
         metadata = OPENAI_YAML_PATH.read_text(encoding="utf-8")
         self.assertIn("allow_implicit_invocation: false", metadata)
 
+    def test_public_identity_is_agent_tools(self) -> None:
+        manifest = json.loads(PLUGIN_MANIFEST_PATH.read_text(encoding="utf-8"))
+        marketplace = json.loads(MARKETPLACE_PATH.read_text(encoding="utf-8"))
+        release = json.loads(RELEASE_PATH.read_text(encoding="utf-8"))
+        self.assertEqual(manifest["name"], "agent-tools")
+        self.assertEqual(manifest["interface"]["displayName"], "AgentTools")
+        self.assertEqual(manifest["version"], release["version"])
+        self.assertEqual(marketplace["name"], "agenttools")
+        self.assertEqual(marketplace["plugins"][0]["name"], "agent-tools")
+        self.assertEqual(
+            marketplace["plugins"][0]["source"]["path"],
+            "./plugins/agent-tools",
+        )
+
+    def test_legacy_update_disable_variable_remains_supported(self) -> None:
+        with patch.dict(
+            UPDATE.os.environ,
+            {"AGENT_POLICY_UPDATE_CHECK": "0"},
+            clear=True,
+        ):
+            self.assertTrue(UPDATE.update_checks_disabled())
+        with patch.dict(
+            UPDATE.os.environ,
+            {
+                "AGENT_TOOLS_UPDATE_CHECK": "1",
+                "AGENT_POLICY_UPDATE_CHECK": "0",
+            },
+            clear=True,
+        ):
+            self.assertFalse(UPDATE.update_checks_disabled())
+
     def test_menu_has_exactly_four_public_capabilities(self) -> None:
         skill = SKILL_PATH.read_text(encoding="utf-8")
         catalog = skill.split("```text", 1)[1].split("```", 1)[0]
@@ -168,7 +202,7 @@ class UpdateSchedulerTests(unittest.TestCase):
             UPDATE.os.environ,
             {
                 "PLUGIN_DATA": plugin_data,
-                "AGENT_POLICY_UPDATE_STATE_DIR": "ignored",
+                "AGENT_TOOLS_UPDATE_STATE_DIR": "ignored",
             },
         ):
             self.assertEqual(

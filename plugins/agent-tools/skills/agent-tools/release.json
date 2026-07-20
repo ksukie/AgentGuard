@@ -1,0 +1,9 @@
+{
+  "version": "0.6.0",
+  "released_at": "2026-07-20T09:32:37Z",
+  "release_sequence": 6,
+  "summary": {
+    "zh-CN": "项目统一更名为 AgentTools，并同步更新 Marketplace、插件与 Skill 标识、文档、更新地址和兼容边界。",
+    "en": "Renames the project to AgentTools and aligns Marketplace, plugin and Skill identities, documentation, update URLs, and compatibility boundaries."
+  }
+}
