@@ -20,6 +20,7 @@ SCRIPT_PATH = (
     / "check_update.py"
 )
 SKILL_PATH = SCRIPT_PATH.parent.parent / "SKILL.md"
+CONTEXT_DOC_PATH = ROOT / "docs" / "context-structuring.md"
 OPENAI_YAML_PATH = (
     ROOT
     / "plugins"
@@ -195,6 +196,25 @@ class UpdateSchedulerTests(unittest.TestCase):
         self.assertIn("Use this single workflow for any explicitly invoked request", workflow)
         self.assertIn("not an exact-match command", workflow)
         self.assertIn("Always start from `<skill-root>/scripts/list_skills.py`", workflow)
+
+    def test_context_structuring_honors_an_explicit_scope(self) -> None:
+        skill = SKILL_PATH.read_text(encoding="utf-8")
+        workflow = skill.split("## Structure task context", 1)[1]
+        self.assertIn("Determine the intended content scope", workflow)
+        self.assertIn("only when the user explicitly limits", workflow)
+        self.assertIn("all available prior rules", workflow)
+        self.assertIn("merely mentioning an aspect does not exclude", workflow)
+        self.assertIn("remains full-context", workflow)
+        self.assertIn("Honor multiple scope conditions", workflow)
+        self.assertIn("do not guess a boundary", workflow)
+        self.assertIn("Exclude unrelated tasks, rules, and history", workflow)
+
+        documentation = CONTEXT_DOC_PATH.read_text(encoding="utf-8")
+        self.assertIn("范围识别与边界", documentation)
+        self.assertIn("只从当前可访问的历史上下文中加载", documentation)
+        self.assertIn("未指定范围时", documentation)
+        self.assertIn("仍是完整总结", documentation)
+        self.assertIn("不自行扩大或缩小范围", documentation)
 
     def test_plugin_data_is_the_only_plugin_state_override(self) -> None:
         plugin_data = str(Path(self.temporary.name) / "plugin-data")

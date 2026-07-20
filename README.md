@@ -43,8 +43,11 @@ codex plugin add agent-tools@agenttools
 @AgentTools 展示仓库级 AGENTS.md 模板
 @AgentTools 总结当前任务上下文
 @AgentTools 生成可供新会话继续的上下文
+@AgentTools 只总结与前端重构有关的上下文
 @AgentTools 列出当前 Codex 的全部 Skill
 ```
+
+上下文梳理支持按主题、任务、组件、阶段或状态限定本次范围。明确限定范围时，只合并该范围内的既有规则、决定与证据；仅提到或要求重点说明某一方面，不会自动变成排他范围。未限定时，仍按原有规则梳理完整的当前有效上下文。
 
 Skill 清单功能只保留上面这一条公开示例，但它不是固定口令：凡是显式调用 AgentTools 后提出的本地 Skill 发现、查找、检查、审计或排查请求，都会进入同一条运行时清单路线。
 

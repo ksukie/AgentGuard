@@ -54,6 +54,7 @@ AgentTools 当前支持：
    用法：@AgentTools 总结当前任务上下文
    用法：@AgentTools 生成可供新会话继续的上下文
    用法：@AgentTools 只整理当前未完成事项
+   用法：@AgentTools 只总结与前端重构有关的上下文
 
 4. Codex Skill 清单与调用审计（Windows、macOS、Linux）
    列出当前 Codex 实际发现的全部 Skill，包括启用状态、隐式或显式调用模式、调用语法、用途和 README 位置。
@@ -107,24 +108,31 @@ Show or adapt the requested template. Do not overwrite an existing `AGENTS.md`; 
 
 Reconstruct the current effective working model, not a chronological transcript.
 
-1. Split a long conversation into distinct tasks. Mark each task as completed, active, paused, or status unknown.
-2. Prefer the latest explicit user decision over earlier proposals. Within already available evidence, prefer inspected code, files, and tool results over conversational claims.
-3. Retain older details only when they still constrain the current task, explain a necessary causal path, or record a rejected or failed route that prevents regression.
-4. Do not invent missing context. Label assumptions and unverified statements, and state when earlier context is unavailable.
-5. For a code or workflow task, summarize the observable flow as entry point → routing → core modules or steps → state and output. Include the brief implementation approach and important constraints, but omit routine command logs and hidden reasoning.
-6. Identify only unresolved alternatives that remain viable and materially affect the current task or next action. Do not list every historical ambiguity.
-7. Default to zero clarification questions when unresolved branches can be preserved safely. Never silently select, merge, or present an undecided alternative as adopted.
-8. When clarification is necessary, ask one consolidated round containing at most three material decisions. Let the user keep any item unresolved.
-9. If the user answers partially or not at all, retain the unanswered branches as pending and do not ask again. Ask another round only when the user explicitly requests resolution of the remaining choices.
-10. Unless the user requests another format, use the following sections and omit empty ones:
+1. Determine the intended content scope from the current explicit invocation before selecting context. Enter scoped mode only when the user explicitly limits the summary to a named topic, task, component, stage, status, or other aspect. If the user does not explicitly narrow the content, keep the existing full-context behavior.
+2. Distinguish a hard scope from emphasis, background, format, or detail-level instructions. A request for a full summary that says to emphasize one aspect remains full-context and gives that aspect more prominence; merely mentioning an aspect does not exclude other context.
+3. Honor multiple scope conditions as the user expresses them. Combine included topics, intersect topic and status filters, and apply explicit exclusions without silently widening or narrowing the requested set.
+4. Resolve references such as "this part" or "that issue" from currently accessible context only when their referent is clear. Otherwise, keep the scope unresolved or ask under the clarification rules below; do not guess a boundary.
+5. For a scoped request, select and consolidate all available prior rules, user decisions, verified evidence, assumptions, unresolved branches, and next actions that apply to that scope. Apply the boundary to source selection before writing the summary; do not summarize the full conversation and merely shorten the output afterward.
+6. Exclude unrelated tasks, rules, and history from a scoped summary. Include an item from outside the named scope only when it directly constrains, depends on, or explains the scoped work, and state that relationship briefly. Never let a narrow scope discard a governing rule that directly applies to it.
+7. Apply a requested scope only to the current invocation. Do not carry it into later AgentTools calls unless the user states it again.
+8. Split the selected context into distinct tasks. Mark each task as completed, active, paused, or status unknown.
+9. Prefer the latest explicit user decision over earlier proposals. Within already available evidence, prefer inspected code, files, and tool results over conversational claims.
+10. Retain older details only when they still constrain the selected task or scope, explain a necessary causal path, or record a rejected or failed route that prevents regression.
+11. Do not invent missing context. Label assumptions and unverified statements, and state when earlier context is unavailable.
+12. For a code or workflow task, summarize the observable flow as entry point → routing → core modules or steps → state and output. Include the brief implementation approach and important constraints, but omit routine command logs and hidden reasoning.
+13. Identify only unresolved alternatives that remain viable and materially affect the selected scope or next action. Do not list every historical ambiguity.
+14. Default to zero clarification questions when unresolved branches can be preserved safely. Never silently select, merge, or present an undecided alternative as adopted.
+15. When clarification is necessary, ask one consolidated round containing at most three material decisions. Let the user keep any item unresolved.
+16. If the user answers partially or not at all, retain the unanswered branches as pending and do not ask again. Ask another round only when the user explicitly requests resolution of the remaining choices.
+17. Unless the user requests another format, use the following sections and omit empty ones:
     - 当前任务主线
     - 当前代码或执行流程
     - 关键做法与约束
     - 当前有效状态
     - 待确认分支
     - 下一步
-11. Match the user's language. Produce a continuation-ready artifact that another session can act on without mistaking proposals for decisions.
-12. Do not inspect unrelated files, run diagnostics, or write the summary to disk unless the current message explicitly asks for those actions.
+18. Match the user's language. Produce a continuation-ready artifact that another session can act on without mistaking proposals for decisions.
+19. Do not inspect unrelated files, run diagnostics, or write the summary to disk unless the current message explicitly asks for those actions.
 
 ## Safety boundary
 
