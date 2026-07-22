@@ -1,7 +1,7 @@
 {
   "name": "agent-tools",
   "version": "0.6.0",
-  "description": "Explicit Agent/Codex diagnostics, AGENTS.md policy guidance, task-context reconstruction, and Codex Skill inventory.",
+  "description": "Explicit Agent/Codex and terminal-startup diagnostics, AGENTS.md policy guidance, task-context reconstruction, and Codex Skill inventory.",
   "author": {
     "name": "ksukie",
     "url": "https://github.com/ksukie"
@@ -21,8 +21,8 @@
   "skills": "./skills/",
   "interface": {
     "displayName": "AgentTools",
-    "shortDescription": "Diagnose Agents, audit Skills, and structure task context.",
-    "longDescription": "Use one explicit AgentTools entry for Agent/Codex diagnostics, AGENTS.md policy templates, task-context reconstruction, and a complete current Codex Skill inventory.",
+    "shortDescription": "Diagnose Agents and terminal startup, audit Skills, and structure task context.",
+    "longDescription": "Use one explicit AgentTools entry for Agent/Codex diagnostics including terminal-startup failures, AGENTS.md policy templates, task-context reconstruction, and a complete current Codex Skill inventory.",
     "developerName": "ksukie",
     "category": "Developer Tools",
     "capabilities": [
@@ -31,6 +31,7 @@
     "websiteURL": "https://github.com/ksukie/AgentTools",
     "defaultPrompt": [
       "Use @AgentTools to diagnose the current Agent or Codex environment.",
+      "Use @AgentTools to diagnose a VS Code terminal startup error.",
       "Use @AgentTools to structure the current task context for continuation.",
       "Use @AgentTools to list every Skill in the current Codex runtime."
     ]

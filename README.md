@@ -8,7 +8,7 @@ AgentTools 帮助发现 AI 编码代理环境中的编码、换行、路径与 C
 
 | 功能                 | 解决的问题                                                                           | 平台                  | 详细说明                                                                 |
 | -------------------- | ------------------------------------------------------------------------------------ | --------------------- | ------------------------------------------------------------------------ |
-| Agent/Codex 诊断     | PowerShell/Python 编码、Git 行尾、脚本兼容性、仓库规则、代理、TUN 与 Codex 重连信号 | Windows               | [仓库诊断](docs/doctor.md) · [连接诊断](docs/codex-connectivity.md)      |
+| Agent/Codex 诊断     | PowerShell 启动 profile、Conda hook、Python 编码、Git 行尾、脚本兼容性、仓库规则、代理、TUN 与 Codex 重连信号 | Windows               | [仓库与终端诊断](docs/doctor.md) · [连接诊断](docs/codex-connectivity.md) |
 | AGENTS.md 策略模板   | 全局、Windows 增强与仓库级执行规则                                                    | Windows、macOS、Linux | [查看文档](docs/agents-templates.md)                                     |
 | 任务上下文梳理与续接 | 当前任务主线、代码或执行流程、关键做法、有效状态、未决分支与下一步                   | Windows、macOS、Linux | [查看文档](docs/context-structuring.md)                                  |
 | Codex Skill 清单     | 全部 Skill 的启用状态、调用模式、语法、用途与 README 位置                            | Windows、macOS、Linux | [查看文档](docs/skill-inventory.md)                                      |
@@ -39,6 +39,7 @@ codex plugin add agent-tools@agenttools
 @AgentTools
 @AgentTools 你能做什么
 @AgentTools 检查当前仓库
+@AgentTools 排查 VS Code 终端启动报错
 @AgentTools 排查最近 1 小时的 Codex 重连
 @AgentTools 展示仓库级 AGENTS.md 模板
 @AgentTools 总结当前任务上下文

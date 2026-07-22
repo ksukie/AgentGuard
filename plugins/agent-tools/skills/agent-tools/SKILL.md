@@ -1,11 +1,11 @@
 ---
 name: agent-tools
-description: Explicit-only AgentTools entry for Agent/Codex diagnostics, AGENTS.md policy-template guidance, task-context reconstruction, and local Codex Skill discovery or troubleshooting through one runtime inventory route covering activation modes, invocation syntax, descriptions, and README locations. Use only when the current message explicitly invokes @AgentTools in a supported picker or $agent-tools in a text client, including capability and usage questions. Installing the Skill, a matching request, or an earlier invocation must never activate it.
+description: Explicit-only AgentTools entry for Agent/Codex diagnostics including PowerShell terminal-startup and environment-init failures, AGENTS.md policy-template guidance, task-context reconstruction, and local Codex Skill discovery or troubleshooting through one runtime inventory route covering activation modes, invocation syntax, descriptions, and README locations. Use only when the current message explicitly invokes @AgentTools in a supported picker or $agent-tools in a text client, including capability and usage questions. Installing the Skill, a matching request, or an earlier invocation must never activate it.
 ---
 
 # AgentTools
 
-Provide one explicit public entry for AgentTools' four supported capabilities. Keep maintenance behavior out of the user-facing capability list.
+Provide one explicit public entry for AgentTools' four supported capabilities. Terminal-startup diagnosis is part of Agent/Codex diagnostics, not a fifth public capability. Keep maintenance behavior out of the user-facing capability list.
 
 ## Activation boundary
 
@@ -28,6 +28,7 @@ Run the bundled update scheduler once only after the activation boundary is sati
 
 - For a bare invocation, show the capability menu and ask which function the user needs.
 - For capability, help, or usage questions such as `你能做什么`, show the menu and examples directly.
+- Route an explicit request about VS Code or PowerShell terminal startup errors, profiles, Conda/Mamba hooks, or automatic environment activation to `Diagnose terminal startup`.
 - Route every explicit request about discovering, listing, locating, inspecting, auditing, or troubleshooting local or current Codex Skills to the single `List current Codex Skills` workflow below. Do not require the menu example's exact wording or split these intents into separate routes.
 - For a clear supported request, execute it directly without asking the user to select it again.
 - For an unsupported request, say it is outside the current scope and show the supported menu.
@@ -40,8 +41,9 @@ Keep this catalog fixed. Translate it to the user's language when needed, but do
 AgentTools 当前支持：
 
 1. Agent/Codex 诊断（Windows）
-   检查 PowerShell/Python 编码、Git 行尾、脚本兼容性、仓库规则，以及代理、TUN 路由、进程连接和 Codex 重连信号。
+   检查 PowerShell 启动 profile、Conda/Mamba hook、Python 编码、Git 行尾、脚本兼容性、仓库规则，以及代理、TUN 路由、进程连接和 Codex 重连信号。
    用法：@AgentTools 检查当前仓库
+   用法：@AgentTools 排查 VS Code 终端启动报错
    用法：@AgentTools 排查最近 1 小时的 Codex 重连
 
 2. AGENTS.md 策略模板（Windows、macOS、Linux）
@@ -80,6 +82,26 @@ Do not expose internal tests or the update checker as user capabilities.
 2. Default to 24 hours when the user does not specify a window. Accept only 1 through 720 hours.
 3. Explain that this reads local proxy, route, process-connection, and aggregate Codex log signals without making an external network request.
 4. Treat `ACTION` as observed evidence, not proof of a specific provider, node, version, or service-side cause.
+
+## Diagnose terminal startup
+
+Use this read-only workflow only for an explicit terminal-startup request. Do not run the repository doctor as a substitute for this flow.
+
+1. Capture the complete error, terminal host, shell executable and version. For PowerShell, inspect every existing `$PROFILE` path and record `$PSNativeCommandArgumentPassing`.
+2. Compare the same shell with `-NoProfile`. If the error disappears, inspect the relevant profile or initialization hook before investigating the project.
+3. For Conda, Mamba, or Python initialization, resolve the executable directly, record its version, inspect the profile block and hook output, and reproduce the activation path in a disposable child shell. Do not trust a shell function that may already be broken.
+4. Treat a PowerShell/Conda version mismatch only as a clue. Confirm it by reproducing the path and by observing whether legacy native argument passing changes the result.
+5. Keep package-manager updates separate from a confirmed startup repair. If an update is explicitly requested, inspect actual channel output and request hosts; `--override-channels` in a command is not proof that `defaults` was excluded. Do not disable SSL verification. Run `conda init` only after a successful update and only when hook regeneration is needed; report profile and permission side effects.
+6. Lead with the result, then report applicable findings in a table:
+
+| Severity | Branch | Condition | User-facing action |
+| --- | --- | --- | --- |
+| `P0` | Security or data safety | Unknown certificate substitution, credential exposure, destructive command, or untrusted executable. | Stop and request direction. |
+| `P1` | Shell startup | A profile, hook, or activation command prevents the terminal or a core command from working. | Give the smallest verified, reversible repair and its verification command. |
+| `P2` | Environment manager | Package update, channel routing, solver, or permission fails independently of startup. | Explain the separation and offer a bounded follow-up plan. |
+| `P3` | Non-blocking output | Notices 404, debug logs, retries that eventually succeed, or harmless configuration noise. | State that no repair is required. |
+
+7. Name the checked component and observed evidence for every row. End with one to three follow-up paths, such as `修复启动 profile`、`排查包更新` or `检查权限`. During diagnosis, provide commands and trade-offs but do not change profiles, channels, packages, or permissions unless the user explicitly chooses that path.
 
 ## List current Codex Skills
 
